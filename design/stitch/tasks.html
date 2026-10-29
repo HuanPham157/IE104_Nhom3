@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>OralEval IE104 - Tạo câu hỏi &amp; Thiết lập Barem chấm điểm</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-container-low": "#f0f3ff",
+            "surface-variant": "#d8e3fb",
+            "on-secondary-container": "#00714d",
+            "error-container": "#ffdad6",
+            "tertiary-fixed-dim": "#d0bcff",
+            "secondary": "#006c49",
+            "surface": "#f9f9ff",
+            "surface-tint": "#5148d7",
+            "surface-container-lowest": "#ffffff",
+            "on-primary-fixed-variant": "#372abf",
+            "on-primary-fixed": "#100069",
+            "secondary-fixed": "#6ffbbe",
+            "surface-container-high": "#dee8ff",
+            "primary-fixed-dim": "#c3c0ff",
+            "inverse-on-surface": "#ecf1ff",
+            "on-primary-container": "#c1beff",
+            "surface-container-highest": "#d8e3fb",
+            "secondary-container": "#6cf8bb",
+            "tertiary-container": "#6029c9",
+            "primary-container": "#4338ca",
+            "background": "#f9f9ff",
+            "on-tertiary-fixed-variant": "#5516be",
+            "on-error-container": "#93000a",
+            "inverse-primary": "#c3c0ff",
+            "outline-variant": "#c7c4d7",
+            "on-secondary": "#ffffff",
+            "on-surface": "#111c2d",
+            "on-primary": "#ffffff",
+            "outline": "#777586",
+            "primary": "#2a14b4",
+            "on-tertiary": "#ffffff",
+            "on-tertiary-fixed": "#23005c",
+            "on-secondary-fixed-variant": "#005236",
+            "on-background": "#111c2d",
+            "inverse-surface": "#263143",
+            "tertiary-fixed": "#e9ddff",
+            "error": "#ba1a1a",
+            "primary-fixed": "#e3dfff",
+            "on-surface-variant": "#464554",
+            "surface-dim": "#cfdaf2",
+            "surface-bright": "#f9f9ff",
+            "secondary-fixed-dim": "#4edea3",
+            "on-error": "#ffffff",
+            "on-secondary-fixed": "#002113",
+            "on-tertiary-container": "#cfbaff",
+            "surface-container": "#e7eeff",
+            "tertiary": "#4700ab"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "margin": "2rem",
+            "gutter": "1.5rem",
+            "gutter-mobile": "1rem",
+            "space-sm": "0.5rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.5rem",
+            "space-md": "1rem",
+            "space-xl": "2.5rem",
+            "margin-mobile": "1rem"
+          },
+          "fontFamily": {
+            "headline-lg-mobile": ["Plus Jakarta Sans"],
+            "body-md": ["Inter"],
+            "body-sm": ["Inter"],
+            "body-lg": ["Inter"],
+            "code-xs": ["JetBrains Mono"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "display-lg": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "display-lg-mobile": ["Plus Jakarta Sans"],
+            "headline-sm": ["Plus Jakarta Sans"],
+            "code-sm": ["JetBrains Mono"],
+            "label-md": ["Inter"],
+            "label-sm": ["Inter"]
+          },
+          "fontSize": {
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }],
+            "code-xs": ["10px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+            "display-lg-mobile": ["30px", { "lineHeight": "38px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
+            "headline-sm": ["18px", { "lineHeight": "26px", "letterSpacing": "-0.005em", "fontWeight": "600" }],
+            "code-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "500" }],
+            "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+            "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #4338ca;
+      cursor: pointer;
+      box-shadow: 0 0 0 3px #dee8ff;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen flex flex-col font-body-md text-body-md selection:bg-surface-container-high selection:text-primary">
+<!-- SHARED COMPONENT: TopNavBar -->
+<header class="flex justify-between items-center w-full px-6 h-16 sticky top-0 z-40 bg-surface-container-lowest dark:bg-inverse-surface border-b border-outline-variant dark:border-outline shadow-sm dark:shadow-none">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-primary-container text-surface-container-lowest flex items-center justify-center font-bold text-headline-sm">
+<span class="material-symbols-outlined text-primary-fixed" data-icon="mic" style="font-size: 22px;">mic</span>
+</div>
+<span class="text-headline-sm font-headline-sm font-bold text-primary dark:text-inverse-primary tracking-tight">OralEval IE104</span>
+</div>
+<!-- Top nav links -->
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-on-surface-variant dark:text-surface-variant font-label-md text-label-md pb-1 hover:text-primary dark:hover:text-inverse-primary hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors duration-150" href="#">Cohorts</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-label-md text-label-md pb-1 hover:text-primary dark:hover:text-inverse-primary hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors duration-150" href="#">Assessments</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-label-md text-label-md pb-1 hover:text-primary dark:hover:text-inverse-primary hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors duration-150" href="#">Analytics</a>
+<a class="text-on-surface-variant dark:text-surface-variant font-label-md text-label-md pb-1 hover:text-primary dark:hover:text-inverse-primary hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors duration-150" href="#">Rubrics</a>
+</nav>
+</div>
+<!-- Trailing actions & Profile -->
+<div class="flex items-center gap-3">
+<!-- Search -->
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-label-md" data-icon="search">search</span>
+<input class="pl-9 pr-3 py-1.5 bg-surface-container-low border border-outline-variant rounded-lg text-body-sm text-on-surface focus:outline-none focus:border-primary w-48 lg:w-60" placeholder="Tìm kiếm mẫu barem..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary p-2 rounded-lg hover:bg-surface-container-low transition-colors" title="Thông báo" type="button">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary p-2 rounded-lg hover:bg-surface-container-low transition-colors" title="Trợ giúp" type="button">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="h-6 w-px bg-outline-variant mx-1"></div>
+<button class="hidden sm:inline-flex items-center text-label-md font-label-md text-on-surface-variant hover:text-primary px-2.5 py-1.5 rounded-lg border border-outline-variant hover:bg-surface-container-low transition-all" type="button">
+        Switch Role
+      </button>
+<div class="flex items-center gap-2 pl-2">
+<div class="w-8 h-8 rounded-full bg-primary-container text-surface-container-lowest flex items-center justify-center font-label-sm font-semibold ring-2 ring-surface-container-high" title="Dr. Sarah Jenkins Avatar">
+          SJ
+        </div>
+</div>
+</div>
+</header>
+<div class="flex flex-1 w-full min-h-[calc(100vh-64px)]">
+<!-- SHARED COMPONENT: SideNavBar -->
+<aside class="w-64 h-full flex flex-col justify-between p-4 border-r border-outline-variant dark:border-outline bg-surface-container-lowest dark:bg-inverse-surface shrink-0 hidden lg:flex sticky top-16" style="height: calc(100vh - 64px);">
+<div class="flex flex-col gap-6">
+<!-- Institution Seal / Header -->
+<div class="flex items-center gap-3 px-2 pt-2">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary font-bold">
+<span class="material-symbols-outlined" data-icon="account_balance" data-weight="fill" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+</div>
+<div class="flex flex-col">
+<span class="text-headline-sm font-headline-sm font-bold text-primary dark:text-inverse-primary leading-tight">OralEval IE104</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Higher Ed Assessment</span>
+</div>
+</div>
+<!-- CTA Button -->
+<button class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-primary-container text-surface-container-lowest font-label-md text-label-md font-semibold hover:bg-primary transition-all duration-150 active:scale-98 shadow-sm" type="button">
+<span class="material-symbols-outlined text-label-md" data-icon="add">add</span>
+          New Assessment
+        </button>
+<!-- Navigation Tabs: Question Builder is ACTIVE -->
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant font-label-md text-label-md hover:bg-surface-container-low dark:hover:bg-surface-container hover:text-on-surface dark:hover:text-inverse-on-surface transition-colors duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+            Dashboard
+          </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant font-label-md text-label-md hover:bg-surface-container-low dark:hover:bg-surface-container hover:text-on-surface dark:hover:text-inverse-on-surface transition-colors duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="mic">mic</span>
+            Active Exams
+          </a>
+<!-- Question Builder (ACTIVE STATE) -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-container-high dark:bg-surface-container text-primary dark:text-inverse-primary font-label-md text-label-md font-semibold transition-all duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="quiz" data-weight="fill" style="font-variation-settings: 'FILL' 1;">quiz</span>
+            Question Builder
+          </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant font-label-md text-label-md hover:bg-surface-container-low dark:hover:bg-surface-container hover:text-on-surface dark:hover:text-inverse-on-surface transition-colors duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="assignment_turned_in">assignment_turned_in</span>
+            Evaluation Hub
+          </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant font-label-md text-label-md hover:bg-surface-container-low dark:hover:bg-surface-container hover:text-on-surface dark:hover:text-inverse-on-surface transition-colors duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="school">school</span>
+            Gradebook
+          </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-surface-variant font-label-md text-label-md hover:bg-surface-container-low dark:hover:bg-surface-container hover:text-on-surface dark:hover:text-inverse-on-surface transition-colors duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="monitoring">monitoring</span>
+            API Usage
+          </a>
+</nav>
+</div>
+<!-- Footer Tabs -->
+<div class="flex flex-col gap-1 pt-4 border-t border-outline-variant">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-label-md text-label-md transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+          Documentation
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-label-md text-label-md transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+          Settings
+        </a>
+</div>
+</aside>
+<!-- MAIN CONTENT AREA -->
+<main class="flex-1 flex flex-col p-6 lg:p-8 max-w-7xl mx-auto w-full">
+<!-- Top Action Bar & Breadcrumbs -->
+<div class="flex flex-col md:flex-row md:items-center justify-between pb-6 mb-6 border-b border-outline-variant gap-4">
+<div>
+<!-- Breadcrumb -->
+<nav class="flex items-center gap-2 text-body-sm font-body-sm text-on-surface-variant mb-1.5">
+<span class="hover:text-primary cursor-pointer transition-colors font-medium">Lớp IE104.N21</span>
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+<span class="text-primary font-semibold">Tạo bài kiểm tra vấn đáp mới</span>
+</nav>
+<div class="flex items-center gap-3">
+<h1 class="text-headline-md font-headline-md text-on-surface font-bold tracking-tight">Cấu hình Đề thi &amp; Barem LLM</h1>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-code-xs font-code-xs bg-surface-container-high text-primary border border-outline-variant font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+              Module 2.4 - Giảng viên
+            </span>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center gap-3 self-end md:self-auto">
+<button class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low transition-all active:scale-95 shadow-sm" type="button">
+<span class="material-symbols-outlined text-label-md" data-icon="save">save</span>
+            Lưu nháp
+          </button>
+<button class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary-container text-surface-container-lowest font-label-md text-label-md font-semibold hover:bg-primary transition-all duration-150 active:scale-95 shadow-sm ring-2 ring-primary-fixed ring-offset-1" type="button">
+<span class="material-symbols-outlined text-label-md" data-icon="publish">publish</span>
+            Xuất bản bài tập
+          </button>
+</div>
+</div>
+<!-- FORM CONTENT: 2-COLUMN / BENTO ARCHITECTURE -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+<!-- LEFT COLUMN: Primary Workspace (8 Cols) -->
+<div class="xl:col-span-8 space-y-6">
+<!-- PHẦN 1: THÔNG TIN CHUNG BÀI TẬP -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
+<div class="flex items-center justify-between pb-4 mb-5 border-b border-outline-variant">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary" data-icon="tune" data-weight="fill" style="font-variation-settings: 'FILL' 1;">tune</span>
+<h2 class="text-headline-sm font-headline-sm font-bold text-on-surface">Phần 1: Thông tin chung bài tập</h2>
+</div>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Bắt buộc thiết lập</span>
+</div>
+<div class="space-y-5">
+<!-- Tên bài tập -->
+<div>
+<label class="block text-label-md font-label-md text-on-surface font-semibold mb-1.5" for="assignment-title">
+                  Tên bài tập vấn đáp <span class="text-error">*</span>
+</label>
+<div class="relative">
+<input class="w-full px-3.5 py-2.5 rounded-lg border border-outline-variant bg-surface-bright text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary shadow-sm" id="assignment-title" type="text" value="Kiểm tra Vấn đáp Giữa kỳ: Kiến trúc Web Frontend hiện đại"/>
+</div>
+</div>
+<!-- Grid Hạn nộp & Số lần ghi âm lại -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Deadline picker -->
+<div>
+<label class="block text-label-md font-label-md text-on-surface font-semibold mb-1.5" for="deadline-picker">
+                    Hạn nộp (Deadline) <span class="text-error">*</span>
+</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-on-surface-variant text-label-md pointer-events-none" data-icon="calendar_today">calendar_today</span>
+<input class="w-full pl-9 pr-3.5 py-2 rounded-lg border border-outline-variant bg-surface-bright text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary shadow-sm font-code-sm" id="deadline-picker" type="text" value="23:59 - 25/11/2024"/>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">Hệ thống sẽ khóa cổng nộp tự động.</p>
+</div>
+<!-- Max retakes -->
+<div>
+<label class="block text-label-md font-label-md text-on-surface font-semibold mb-1.5" for="max-retakes">
+                    Số lần sinh viên được ghi âm lại (Max retakes)
+                  </label>
+<div class="relative">
+<select class="w-full px-3.5 py-2 rounded-lg border border-outline-variant bg-surface-bright text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary shadow-sm appearance-none" id="max-retakes">
+<option value="1">1 lần (Chỉ ghi âm 1 lượt - Nghiêm ngặt)</option>
+<option value="2">2 lần</option>
+<option selected="" value="3">3 lần (Khuyên dùng cho thi giữa kỳ)</option>
+<option value="5">5 lần</option>
+<option value="unlimited">Không giới hạn (Luyện tập tự do)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface-variant pointer-events-none text-label-md" data-icon="unfold_more">unfold_more</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">Giúp giảm áp lực thi cử và sự cố thiết bị mic.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- PHẦN 2: DANH SÁCH CÂU HỎI VẤN ĐÁP -->
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="format_list_numbered">format_list_numbered</span>
+<h2 class="text-headline-sm font-headline-sm font-bold text-on-surface">Phần 2: Danh sách câu hỏi vấn đáp (Question Items)</h2>
+</div>
+<span class="text-code-sm font-code-sm text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded font-medium">Tổng điểm hiện tại: 7.0 / 10.0</span>
+</div>
+<!-- THẺ CÂU HỎI 1: ĐANG MỞ SOẠN THẢO CHI TIẾT -->
+<article class="bg-surface-container-lowest border-2 border-primary/40 rounded-xl shadow-md overflow-hidden transition-all duration-200">
+<!-- Card Header -->
+<div class="bg-surface-container-high/60 px-5 py-3.5 border-b border-outline-variant flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="inline-flex items-center justify-center w-6 h-6 rounded bg-primary text-surface-container-lowest font-code-sm font-bold text-xs">
+                    01
+                  </span>
+<span class="font-headline-sm text-label-md font-bold text-primary">Câu hỏi 1: So sánh cơ chế lưu trữ trình duyệt &amp; XSS</span>
+<span class="px-2 py-0.5 rounded text-code-xs font-code-xs bg-surface-container-lowest text-primary border border-primary/30">Đang chỉnh sửa</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="p-1.5 text-on-surface-variant hover:text-primary rounded-md hover:bg-surface-container-high transition-colors" title="Nhân bản câu hỏi" type="button">
+<span class="material-symbols-outlined text-label-md" data-icon="content_copy">content_copy</span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:text-error rounded-md hover:bg-surface-container-high transition-colors" title="Xóa câu hỏi" type="button">
+<span class="material-symbols-outlined text-label-md" data-icon="delete">delete</span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:text-on-surface rounded-md hover:bg-surface-container-high transition-colors" title="Thu gọn" type="button">
+<span class="material-symbols-outlined text-label-md" data-icon="expand_less">expand_less</span>
+</button>
+</div>
+</div>
+<!-- Card Body -->
+<div class="p-6 space-y-6">
+<!-- Nội dung câu hỏi -->
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="text-label-md font-label-md text-on-surface font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-label-md" data-icon="record_voice_over">record_voice_over</span>
+                      Nội dung câu hỏi vấn đáp (Sinh viên sẽ nghe &amp; đọc) <span class="text-error">*</span>
+</label>
+<span class="text-code-xs font-code-xs text-on-surface-variant">112 ký tự</span>
+</div>
+<textarea class="w-full px-3.5 py-2.5 rounded-lg border border-outline-variant bg-surface-bright text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary shadow-sm leading-relaxed" rows="3">Hãy phân tích sự khác nhau giữa Cookie, LocalStorage và SessionStorage. Nêu kịch bản tấn công XSS khi lưu trữ token.</textarea>
+</div>
+<!-- Parameters: Thời gian & Trọng số điểm -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-5 p-4 rounded-lg bg-surface-container-low border border-outline-variant">
+<!-- Thời gian nói tối đa (7 Cols) -->
+<div class="md:col-span-7 space-y-2">
+<label class="block text-label-md font-label-md text-on-surface font-semibold">
+                      Thời gian nói tối đa (Recording Cap)
+                    </label>
+<div class="flex flex-wrap items-center gap-2">
+<button class="px-3 py-1.5 rounded-md text-body-sm font-label-sm border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container-high transition-colors" type="button">
+                        60 giây
+                      </button>
+<!-- Pills chọn nhanh '90 giây' (Đang chọn) -->
+<button class="px-3 py-1.5 rounded-md text-body-sm font-label-sm border-2 border-primary bg-primary-container text-surface-container-lowest font-semibold shadow-sm flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-xs" data-icon="check_circle">check_circle</span>
+                        90 giây
+                      </button>
+<button class="px-3 py-1.5 rounded-md text-body-sm font-label-sm border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container-high transition-colors" type="button">
+                        120 giây
+                      </button>
+<div class="relative w-28">
+<input class="w-full px-2.5 py-1.5 rounded-md border border-outline-variant bg-surface-container-lowest text-code-sm font-code-sm text-on-surface focus:border-primary" placeholder="Tùy chỉnh..." type="text"/>
+<span class="absolute right-2 top-2 text-code-xs font-code-xs text-on-surface-variant">giây</span>
+</div>
+</div>
+</div>
+<!-- Trọng số điểm (5 Cols) -->
+<div class="md:col-span-5 space-y-2">
+<label class="block text-label-md font-label-md text-on-surface font-semibold" for="question-score">
+                      Trọng số điểm
+                    </label>
+<div class="flex items-center gap-2">
+<div class="relative flex-1">
+<input class="w-full px-3 py-1.5 rounded-md border border-outline-variant bg-surface-container-lowest text-on-surface font-code-sm font-bold text-primary focus:border-primary text-center" id="question-score" type="text" value="3.5"/>
+</div>
+<span class="font-code-sm font-code-sm text-on-surface-variant font-medium">/ 10 điểm</span>
+<span class="text-code-xs font-code-xs px-2 py-1 rounded bg-surface-container-high text-on-primary-fixed-variant font-semibold">35% tổng bài</span>
+</div>
+</div>
+</div>
+<!-- CẤU HÌNH BAREM CHUẨN & TỪ KHÓA CHO AI (RUBRIC & KEY CONCEPTS FOR AI LLM) -->
+<div class="p-5 rounded-xl border border-primary/20 bg-surface-container-low/70 space-y-5">
+<div class="flex items-center justify-between pb-3 border-b border-outline-variant/60">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="auto_awesome" data-weight="fill" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<h3 class="text-label-md font-label-md font-bold text-primary">Cấu hình Barem chuẩn &amp; Từ khóa cho AI LLM</h3>
+</div>
+<span class="text-code-xs font-code-xs text-primary font-semibold flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+                      Mô hình OralLLM-IE104 Sẵn sàng
+                    </span>
+</div>
+<!-- Danh sách chips từ khóa bắt buộc -->
+<div class="space-y-2.5">
+<div class="flex items-center justify-between">
+<label class="text-label-md font-label-md text-on-surface font-semibold">
+                        Từ khóa / Khái niệm cốt lõi bắt buộc phải xuất hiện (Speech Entity Extraction):
+                      </label>
+<button class="text-label-sm font-label-sm text-primary hover:text-on-primary-fixed-variant font-semibold inline-flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-sm" data-icon="add_circle">add_circle</span>
+                        + Thêm từ khóa
+                      </button>
+</div>
+<div class="flex flex-wrap items-center gap-2">
+<!-- Chip 1 -->
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-body-sm font-label-sm bg-surface-container-lowest border border-outline-variant text-on-surface shadow-xs">
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="check_circle">check_circle</span>
+                        Cơ chế lưu trữ
+                        <button class="text-on-surface-variant hover:text-error ml-1" type="button">
+<span class="material-symbols-outlined text-sm" data-icon="close">close</span>
+</button>
+</span>
+<!-- Chip 2 -->
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-body-sm font-label-sm bg-surface-container-lowest border border-outline-variant text-on-surface shadow-xs">
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="check_circle">check_circle</span>
+                        Thời gian sống (Lifespan)
+                        <button class="text-on-surface-variant hover:text-error ml-1" type="button">
+<span class="material-symbols-outlined text-sm" data-icon="close">close</span>
+</button>
+</span>
+<!-- Chip 3 -->
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-body-sm font-label-sm bg-surface-container-lowest border border-outline-variant text-on-surface shadow-xs">
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="check_circle">check_circle</span>
+                        Dung lượng ~4KB vs 5MB
+                        <button class="text-on-surface-variant hover:text-error ml-1" type="button">
+<span class="material-symbols-outlined text-sm" data-icon="close">close</span>
+</button>
+</span>
+<!-- Chip 4 -->
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-body-sm font-label-sm bg-surface-container-lowest border border-outline-variant text-on-surface shadow-xs">
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="check_circle">check_circle</span>
+                        Bảo mật HttpOnly, XSS
+                        <button class="text-on-surface-variant hover:text-error ml-1" type="button">
+<span class="material-symbols-outlined text-sm" data-icon="close">close</span>
+</button>
+</span>
+<button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-body-sm font-label-sm border border-dashed border-primary text-primary hover:bg-surface-container-high transition-colors" type="button">
+<span class="material-symbols-outlined text-xs" data-icon="add">add</span>
+                        Thêm từ khóa mới
+                      </button>
+</div>
+</div>
+<!-- Mức độ khắt khe của AI: Slider -->
+<div class="space-y-2 pt-2 border-t border-outline-variant/60">
+<div class="flex items-center justify-between">
+<label class="text-label-md font-label-md text-on-surface font-semibold flex items-center gap-1.5" for="strictness-slider">
+<span class="material-symbols-outlined text-primary text-label-md" data-icon="psychology">psychology</span>
+                        Mức độ khắt khe của AI (AI Strictness &amp; Semantic Tolerance)
+                      </label>
+<span class="px-2.5 py-0.5 rounded font-code-sm text-code-xs bg-surface-container-high text-primary font-bold">
+                        Bình thường (Standard)
+                      </span>
+</div>
+<div class="space-y-1">
+<input class="w-full h-2 bg-surface-container-high rounded-lg appearance-none cursor-pointer" id="strictness-slider" max="3" min="1" type="range" value="2"/>
+<div class="flex justify-between text-body-sm font-label-sm text-on-surface-variant px-1">
+<span class="text-left">Linh hoạt (Forgiving)<br/><span class="text-code-xs text-outline">Chấp nhận nói vấp / đồng nghĩa rộng</span></span>
+<span class="text-center font-semibold text-primary">Bình thường (Standard)<br/><span class="text-code-xs text-outline">Chuẩn mực đào tạo đại học</span></span>
+<span class="text-right">Nghiêm ngặt (Strict)<br/><span class="text-code-xs text-outline">Khắt khe thuật ngữ kỹ thuật</span></span>
+</div>
+</div>
+</div>
+<!-- Textarea mô tả chi tiết barem chuẩn giảng viên muốn AI đối chiếu -->
+<div class="space-y-2 pt-2">
+<div class="flex items-center justify-between">
+<label class="text-label-md font-label-md text-on-surface font-semibold flex items-center gap-1.5" for="rubric-prompt">
+<span class="material-symbols-outlined text-primary text-label-md" data-icon="fact_check">fact_check</span>
+                        Chi tiết Barem &amp; Hướng dẫn chấm cho LLM (Master Ground-truth Rubric)
+                      </label>
+<span class="text-body-sm font-body-sm text-on-surface-variant hover:text-primary cursor-pointer">Xem cấu trúc mẫu</span>
+</div>
+<textarea class="w-full px-3.5 py-2.5 rounded-lg border border-outline-variant bg-surface-bright text-on-surface font-body-md focus:border-primary focus:ring-1 focus:ring-primary shadow-sm leading-relaxed" id="rubric-prompt" placeholder="Nhập hướng dẫn chấm chi tiết..." rows="5">1. Tiêu chí So sánh (Tối đa 2.0 điểm):
+- Nêu rõ Cookie gửi tự động kèm request HTTP, giới hạn ~4KB. Có thể gắn flag HttpOnly, Secure.
+- LocalStorage lưu trữ vĩnh viễn cho đến khi bị xóa, dung lượng ~5-10MB, cùng origin.
+- SessionStorage giải phóng khi tab trình duyệt đóng lại.
+
+2. Tiêu chí Kịch bản bảo mật XSS (Tối đa 1.5 điểm):
+- Nếu lưu Access Token / JWT trong LocalStorage, mã độc JavaScript (XSS) có thể đọc trộm và gửi ra máy chủ hacker.
+- Sinh viên đề xuất giải pháp lưu trữ an toàn hơn: HttpOnly Cookie hoặc kết hợp In-Memory state với Silent Refresh.</textarea>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+                      * AI sẽ phân tích giọng nói từ audio transcript, tự động trích xuất các ý theo barem trên và gán điểm đề xuất cho giảng viên duyệt.
+                    </p>
+</div>
+</div>
+<!-- Footer Card actions -->
+<div class="flex items-center justify-end gap-3 pt-2">
+<button class="px-4 py-2 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low transition-colors" type="button">
+                    Thu gọn câu hỏi
+                  </button>
+<button class="px-4 py-2 rounded-lg bg-primary text-surface-container-lowest font-label-md text-label-md font-semibold hover:bg-primary-container transition-colors shadow-sm" type="button">
+                    Lưu thay đổi câu hỏi 1
+                  </button>
+</div>
+</div>
+</article>
+<!-- THẺ CÂU HỎI 2 (DẠNG THU GỌN - COLLAPSED) -->
+<article class="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-sm hover:border-primary/50 transition-all cursor-pointer">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3.5 flex-1 min-w-0 pr-4">
+<span class="inline-flex items-center justify-center w-6 h-6 rounded bg-surface-container-high text-on-surface-variant font-code-sm font-bold text-xs shrink-0">
+                    02
+                  </span>
+<div class="min-w-0">
+<h3 class="font-label-md text-label-md font-semibold text-on-surface truncate">
+                      Giải thích nguyên lý Virtual DOM trong React và cách tối ưu re-render
+                    </h3>
+<div class="flex items-center gap-3 mt-0.5">
+<span class="inline-flex items-center gap-1 text-code-xs font-code-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-xs" data-icon="timer">timer</span>
+                        90s
+                      </span>
+<span class="inline-flex items-center gap-1 text-code-xs font-code-xs text-primary font-semibold">
+<span class="material-symbols-outlined text-xs" data-icon="grade">grade</span>
+                        3.5 điểm
+                      </span>
+<span class="inline-flex items-center gap-1 text-code-xs font-code-xs text-secondary font-medium">
+<span class="material-symbols-outlined text-xs" data-icon="verified">verified</span>
+                        3 từ khóa AI
+                      </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<button class="p-1.5 text-on-surface-variant hover:text-primary rounded-md hover:bg-surface-container-high transition-colors" title="Mở rộng chỉnh sửa" type="button">
+<span class="material-symbols-outlined text-label-md" data-icon="edit">edit</span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:text-primary rounded-md hover:bg-surface-container-high transition-colors" type="button">
+<span class="material-symbols-outlined text-label-md" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Nút '+ Thêm câu hỏi vấn đáp mới' -->
+<button class="w-full py-4 rounded-xl border-2 border-dashed border-outline-variant hover:border-primary bg-surface-container-lowest hover:bg-surface-container-low text-primary font-label-md text-label-md font-semibold flex items-center justify-center gap-2 transition-all duration-150" type="button">
+<span class="material-symbols-outlined text-label-md" data-icon="add_box">add_box</span>
+              + Thêm câu hỏi vấn đáp mới
+            </button>
+</div>
+</div>
+<!-- RIGHT COLUMN: Assistant Panels, Presets & Overview (4 Cols) -->
+<div class="xl:col-span-4 space-y-6">
+<!-- Card Tổng hợp thiết lập điểm -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm space-y-4">
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="pie_chart">pie_chart</span>
+              Phân bổ trọng số bài thi
+            </h3>
+<div class="space-y-3">
+<div class="flex items-center justify-between text-body-sm font-label-sm">
+<span class="text-on-surface-variant">Số lượng câu hỏi</span>
+<span class="font-code-sm font-bold text-on-surface">2 câu</span>
+</div>
+<div class="flex items-center justify-between text-body-sm font-label-sm">
+<span class="text-on-surface-variant">Tổng thời gian thi dự kiến</span>
+<span class="font-code-sm font-bold text-on-surface">3 phút 00 giây</span>
+</div>
+<div class="flex items-center justify-between text-body-sm font-label-sm">
+<span class="text-on-surface-variant">Tổng điểm đã cấu hình</span>
+<span class="font-code-sm font-bold text-primary">7.0 / 10.0 điểm</span>
+</div>
+<!-- Progress bar -->
+<div class="w-full bg-surface-container-high rounded-full h-2.5 overflow-hidden">
+<div class="bg-primary h-2.5 rounded-full" style="width: 70%"></div>
+</div>
+<div class="p-3 bg-surface-container-low rounded-lg border border-outline-variant flex items-start gap-2">
+<span class="material-symbols-outlined text-primary text-sm shrink-0 mt-0.5" data-icon="info">info</span>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+                  Còn lại <strong class="text-on-surface">3.0 điểm</strong> chưa gán. Hãy thêm câu hỏi thứ 3 hoặc điều chỉnh lại các câu hỏi hiện tại để tròn 10 điểm.
+                </p>
+</div>
+</div>
+</div>
+<!-- Card AI Assistant: Thư viện Barem Khoa CNTT -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="library_books">library_books</span>
+                Mẫu Barem Chuẩn gợi ý
+              </h3>
+<span class="text-code-xs font-code-xs text-primary font-semibold">Khoa HTTT</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+              Áp dụng nhanh các barem mẫu đã được hội đồng chuyên môn IE104 phê duyệt:
+            </p>
+<div class="space-y-2.5">
+<div class="p-3 rounded-lg border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="flex items-center justify-between">
+<span class="text-label-md font-label-md font-semibold text-on-surface group-hover:text-primary">Kiến trúc Web &amp; Security</span>
+<span class="text-code-xs font-code-xs text-on-surface-variant">3 tiêu chí</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant line-clamp-1 mt-1">Đánh giá cơ chế cookie, token authentication, HTTPS handshake...</p>
+</div>
+<div class="p-3 rounded-lg border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="flex items-center justify-between">
+<span class="text-label-md font-label-md font-semibold text-on-surface group-hover:text-primary">React &amp; Virtual DOM Lifecycle</span>
+<span class="text-code-xs font-code-xs text-on-surface-variant">4 tiêu chí</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant line-clamp-1 mt-1">Fiber reconciler, memoization, batching state updates...</p>
+</div>
+<div class="p-3 rounded-lg border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="flex items-center justify-between">
+<span class="text-label-md font-label-md font-semibold text-on-surface group-hover:text-primary">REST API &amp; Microservices</span>
+<span class="text-code-xs font-code-xs text-on-surface-variant">3 tiêu chí</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant line-clamp-1 mt-1">Idempotency, HTTP status codes, loose coupling...</p>
+</div>
+</div>
+<button class="w-full py-2 text-center text-label-md font-label-md text-primary hover:text-on-primary-fixed-variant font-semibold flex items-center justify-center gap-1" type="button">
+              Xem toàn bộ kho barem IE104
+              <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Card Quy định Thính giác & Speech-to-Text AI -->
+<div class="bg-surface-container-low rounded-xl p-5 border border-outline-variant space-y-3">
+<div class="flex items-center gap-2 text-primary font-bold text-label-md">
+<span class="material-symbols-outlined" data-icon="hearing">hearing</span>
+<span>Cơ chế chấm điểm tự động (OralEval AI)</span>
+</div>
+<ul class="text-body-sm font-body-sm text-on-surface-variant space-y-2 list-disc list-inside">
+<li>Sinh viên phát âm tiếng Việt kết hợp thuật ngữ Anh chuyên ngành sẽ được nhận diện tự nhiên (Bilingual Recognition).</li>
+<li>Điểm số do AI đề xuất chỉ có hiệu lực khi Giảng viên phụ trách nhấn xác nhận ở <strong>Evaluation Hub</strong>.</li>
+<li>Hệ thống lưu trữ bản ghi âm tối đa 1 năm phục vụ thanh tra đào tạo.</li>
+</ul>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
