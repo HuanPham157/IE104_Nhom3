@@ -1,4 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export async function getProfileRole(db: SupabaseClient, userId: string) {
+  const { data, error } = await db
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+
+  return { role: data?.role ?? null, error };
+}
 
 export async function authRequest(request: Request) {
   const header = request.headers.get('authorization') ?? '';

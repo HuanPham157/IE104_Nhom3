@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { authRequest } from '@/lib/auth-request';
+import { authRequest, getProfileRole } from '@/lib/auth-request';
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -29,6 +29,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     const auth = await authRequest(request);
     if (!auth) return json({ error: 'Chưa đăng nhập' }, 401);
+
+    const profile = await getProfileRole(auth.db, auth.user.id);
+    if (profile.error) return json({ error: 'Không thể kiểm tra quyền truy cập' }, 500);
+    if (profile.role !== 'student') return json({ error: 'Chỉ sinh viên mới được quản lý công việc' }, 403);
 
     const { id } = await context.params;
     const idParsed = idSchema.safeParse(id);
@@ -74,6 +78,10 @@ export async function DELETE(request: Request, context: RouteContext) {
   try {
     const auth = await authRequest(request);
     if (!auth) return json({ error: 'Chưa đăng nhập' }, 401);
+
+    const profile = await getProfileRole(auth.db, auth.user.id);
+    if (profile.error) return json({ error: 'Không thể kiểm tra quyền truy cập' }, 500);
+    if (profile.role !== 'student') return json({ error: 'Chỉ sinh viên mới được quản lý công việc' }, 403);
 
     const { id } = await context.params;
     const idParsed = idSchema.safeParse(id);

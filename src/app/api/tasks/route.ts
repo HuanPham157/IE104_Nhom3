@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { authRequest } from '@/lib/auth-request';
+import { authRequest, getProfileRole } from '@/lib/auth-request';
 
 // Helper trả về JSON có cấm cache để dữ liệu luôn mới nhất
 const json = (body: unknown, status = 200) =>
@@ -21,6 +21,10 @@ export async function GET(request: Request) {
     const auth = await authRequest(request);
     if (!auth) return json({ error: 'Chưa đăng nhập' }, 401);
 
+    const profile = await getProfileRole(auth.db, auth.user.id);
+    if (profile.error) return json({ error: 'Không thể kiểm tra quyền truy cập' }, 500);
+    if (profile.role !== 'student') return json({ error: 'Chỉ sinh viên mới được quản lý công việc' }, 403);
+
     const { data, error } = await auth.db
       .from('tasks')
       .select('id,title,is_done,created_at')
@@ -39,6 +43,10 @@ export async function POST(request: Request) {
   try {
     const auth = await authRequest(request);
     if (!auth) return json({ error: 'Chưa đăng nhập' }, 401);
+
+    const profile = await getProfileRole(auth.db, auth.user.id);
+    if (profile.error) return json({ error: 'Không thể kiểm tra quyền truy cập' }, 500);
+    if (profile.role !== 'student') return json({ error: 'Chỉ sinh viên mới được quản lý công việc' }, 403);
 
     const body = await request.json().catch(() => null);
     const parsed = inputSchema.safeParse(body);

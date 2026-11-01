@@ -27,20 +27,20 @@ security definer
 set search_path = ''
 as $$
 declare
-  profile_role text := new.raw_user_meta_data ->> 'role';
+  -- app_metadata is admin-managed; public signup must not assign its own role.
+  profile_role text := coalesce(new.raw_app_meta_data ->> 'role', 'student');
   institutional_id text := btrim(new.raw_user_meta_data ->> 'institutional_id');
   full_name text := btrim(new.raw_user_meta_data ->> 'full_name');
   faculty text := btrim(new.raw_user_meta_data ->> 'faculty');
 begin
-  if profile_role is null
+  if new.raw_app_meta_data ->> 'role' is null
      and institutional_id is null
      and full_name is null
      and faculty is null then
     return new;
   end if;
 
-  if profile_role is null
-     or profile_role not in ('student', 'teacher')
+  if profile_role not in ('student', 'teacher')
      or coalesce(char_length(institutional_id), 0) not between 1 and 32
      or coalesce(char_length(full_name), 0) not between 1 and 120
      or coalesce(char_length(faculty), 0) not between 1 and 120 then

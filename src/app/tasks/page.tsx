@@ -1,8 +1,8 @@
 import TaskDashboard from '@/components/TaskDashboard';
 
 export const metadata = {
-  title: 'Danh sách công việc - Việc học của tôi',
-  description: 'Trang quản lý công việc và câu hỏi bài tập',
+  title: 'Việc học của tôi - AIOralCheck',
+  description: 'Danh sách công việc học tập dành cho sinh viên.',
 };
 
 export default function TasksPage() {

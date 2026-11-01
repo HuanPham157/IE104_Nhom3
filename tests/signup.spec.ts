@@ -46,14 +46,14 @@ test.describe('Đăng ký Supabase Auth', () => {
     await expect(page.getByRole('status')).toContainText('xác nhận');
     expect(submitted.email).toBe('student@example.edu');
     expect(submitted.data).toMatchObject({
-      role: 'student',
       institutional_id: 'SV001',
       full_name: 'Nguyen Van A',
       faculty: 'Khoa Công nghệ Thông tin',
     });
+    expect(submitted.data).not.toHaveProperty('role');
   });
 
-  test('gửi vai trò giảng viên và mã số giảng viên', async ({ page }) => {
+  test('không cho người dùng tự chọn vai trò giảng viên khi đăng ký', async ({ page }) => {
     let submitted: {
       data?: Record<string, unknown>;
     } = {};
@@ -85,23 +85,23 @@ test.describe('Đăng ký Supabase Auth', () => {
     });
 
     await page.goto('/signup');
-    await page.getByRole('button', { name: /Giảng viên/ }).click();
-    await page.getByLabel(/Mã số Giảng viên/).fill('GV001');
-    await page.getByLabel('Email', { exact: true }).fill('teacher@example.edu');
+    await expect(page.getByRole('button', { name: /Giảng viên/ })).toHaveCount(0);
+    await page.getByLabel(/Mã số Sinh viên/).fill('SV002');
+    await page.getByLabel('Email', { exact: true }).fill('student2@example.edu');
     await page.getByLabel('Họ tên').fill('Nguyen Van B');
     await page.getByLabel(/Khoa/).selectOption('Khoa Công nghệ Thông tin');
     await page.getByLabel('Mật khẩu', { exact: true }).fill('example-password-123');
     await page.getByLabel('Xác nhận lại mật khẩu').fill('example-password-123');
     await page.getByRole('checkbox').check();
-    await page.getByRole('button', { name: /Đăng ký tài khoản Giảng viên/ }).click();
+    await page.getByRole('button', { name: /Đăng ký tài khoản Sinh viên/ }).click();
 
     await expect(page.getByRole('status')).toContainText('xác nhận');
     expect(submitted.data).toMatchObject({
-      role: 'teacher',
-      institutional_id: 'GV001',
+      institutional_id: 'SV002',
       full_name: 'Nguyen Van B',
       faculty: 'Khoa Công nghệ Thông tin',
     });
+    expect(submitted.data).not.toHaveProperty('role');
   });
 
   test('không gọi Supabase nếu mật khẩu xác nhận không khớp', async ({ page }) => {

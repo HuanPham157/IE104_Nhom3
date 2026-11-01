@@ -31,6 +31,38 @@
 2. Sao chép toàn bộ nội dung từ tệp [`supabase/schema.sql`](file:///d:/HocTap/Nam%203/HK1/IE104/viec-hoc/supabase/schema.sql) trong dự án và bấm **Run**.
 3. Tạo một query mới, sao chép nội dung [`supabase/signup.sql`](./supabase/signup.sql) và bấm **Run**. Nếu bảng `tasks` đã được tạo trước đó thì chỉ cần chạy bước này.
 4. Kết quả: Bảng `public.tasks` được bảo vệ bằng RLS; bảng `public.profiles` lưu vai trò, mã số trường, họ tên và khoa. Trigger tự tạo hồ sơ khi đăng ký, còn RLS chỉ cho phép người dùng đọc hồ sơ của chính mình.
+5. Đăng ký công khai chỉ tạo tài khoản sinh viên. Để cấp tài khoản giảng viên, quản trị viên tạo người dùng trong Supabase Auth, lấy UUID của tài khoản rồi chạy câu lệnh sau trong SQL Editor:
+
+   ```sql
+   insert into public.profiles (id, role, institutional_id, full_name, faculty)
+   values ('UUID_CUA_TAI_KHOAN', 'teacher', 'MSGV', 'Họ tên giảng viên', 'Tên khoa')
+   on conflict (id) do update set role = excluded.role;
+   ```
+
+   Chỉ quản trị viên được chạy thao tác này. Không cấp quyền giảng viên từ dữ liệu form hoặc `user_metadata` do người dùng tự gửi. Các hồ sơ giảng viên đã tồn tại trước thay đổi cần được quản trị viên rà soát và xác minh.
+
+#### Tạo hồ sơ cho tài khoản tạo thủ công
+
+- Khi sinh viên đăng ký qua form `/signup` của website, không cần chạy SQL thêm hồ sơ. Form gửi MSSV, họ tên và khoa; trigger `on_auth_user_created` trong `signup.sql` tự tạo dòng `public.profiles` với role `student`.
+- Điều này chỉ hoạt động sau khi đã chạy phiên bản `supabase/signup.sql` hiện tại trên đúng Supabase project mà website đang kết nối.
+- Nếu tạo user thủ công trong **Authentication → Users**, Supabase Auth tạo tài khoản nhưng không tự tạo hồ sơ ứng dụng nếu không có metadata cần thiết. Quản trị viên cần thêm hồ sơ bằng UUID của user. Ví dụ cho sinh viên:
+
+  ```sql
+  insert into public.profiles (id, role, institutional_id, full_name, faculty)
+  values ('UUID_CUA_USER', 'student', 'MSSV_MOI', 'Họ tên sinh viên', 'Tên khoa');
+  ```
+
+- Mã số (`institutional_id`) phải chưa được hồ sơ khác sử dụng. Với giảng viên tạo thủ công, dùng hướng dẫn cấp role `teacher` ở trên. Không chạy lệnh SQL thủ công cho tài khoản đã được trigger tạo hồ sơ thành công, trừ khi cần cập nhật hồ sơ.
+
+#### Phân biệt quản trị viên Supabase và quản trị viên ứng dụng
+
+- **Quản trị viên Supabase project/organization:** Mời thành viên trong phần **Access Control / Team** của Supabase và chỉ cấp quyền cần thiết. Đây là quyền quản lý hạ tầng Supabase, không phải role đăng nhập của website.
+- **Quản trị viên trong ứng dụng:** Hiện ứng dụng chưa hỗ trợ role `admin`. Bảng `public.profiles` chỉ chấp nhận `student` và `teacher`; chưa có dashboard hay chính sách phân quyền dành cho quản trị viên ứng dụng. Không tự gán `admin` vào `profiles` vì database sẽ từ chối và ứng dụng chưa xử lý role này.
+- **Cấp role giảng viên:** Thực hiện bằng tài khoản quản trị database như hướng dẫn ở trên. Người dùng công khai không thể tự chọn role giảng viên khi đăng ký.
+- **Dashboard giảng viên (`/teacher`):** Có xác minh role, hiển thị hồ sơ thật và đăng xuất. Bố cục theo `design/stitch/dashboard-teacher.png`; số liệu, lớp, bài thi, AI và HSM đang là dữ liệu minh họa, có nhãn riêng. Các nút nghiệp vụ chưa kết nối chỉ mở thông tin xem trước; schema hiện chưa có bảng cho các nghiệp vụ này.
+- **Lớp học giảng viên (`/teacher/classes`):** Giao diện theo `design/stitch/class-teacher.png`; hồ sơ giảng viên lấy từ Supabase, danh sách lớp và các chỉ số đang là dữ liệu minh họa. Mục Lớp học & Hội đồng trên dashboard mở trang này.
+- **Dashboard sinh viên (`/student`):** Giao diện theo `design/stitch/dashboard-student.png`; tên/MSSV lấy từ hồ sơ, còn điểm, lịch, bài thi và lớp đang là dữ liệu minh họa. Đăng nhập/đăng ký sinh viên mở dashboard này; khu vực Bài tập oral và CRUD thật vẫn có tại `/tasks`.
+- **Dashboard sinh viên (`/tasks`):** Phần danh sách bài thi Oral hiện dùng dữ liệu demo để dựng giao diện theo `design/stitch/task-student.png`; nhãn `DỮ LIỆU DEMO` phân biệt rõ với dữ liệu thật. Deadline, môn học, rubric, điểm AI và lịch thi demo không được lưu vào Supabase. Khu vực **Công việc cá nhân** bên dưới vẫn dùng CRUD thật với `public.tasks`.
 
 ### Bước 3: Cấu hình xác nhận email và tài khoản thử nghiệm
 1. Trong **Authentication** → **Providers** → **Email**, bật nhà cung cấp Email. Nếu bật xác nhận email, cấu hình SMTP để gửi thư xác nhận; tài khoản chỉ đăng nhập được sau khi xác nhận.

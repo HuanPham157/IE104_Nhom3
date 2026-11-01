@@ -6,14 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 
-type Role = 'student' | 'teacher';
-
 const fieldClassName =
   'h-[29px] w-full rounded-md border border-[#d4d4d4] bg-[#f3f3f3] px-3 text-[10px] text-[#202124] outline-none transition focus:border-[#555] focus:bg-white focus:ring-1 focus:ring-[#555]/20';
 
 function Signup() {
   const router = useRouter();
-  const [role, setRole] = useState<Role>('student');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -47,7 +44,6 @@ function Signup() {
         password,
         options: {
           data: {
-            role,
             institutional_id: institutionalId,
             full_name: fullName,
             faculty,
@@ -69,7 +65,7 @@ function Signup() {
       }
 
       if (data.session) {
-        router.replace('/tasks');
+        router.replace('/student');
         router.refresh();
         return;
       }
@@ -254,64 +250,16 @@ function Signup() {
 
               <form className="mt-2" onSubmit={handleSubmit}>
                 <div className="mb-2 flex items-center justify-between gap-2 text-[8px] font-semibold">
-                  <span className="text-[#555]">CHỌN VAI TRÒ NGƯỜI DÙNG (BẮT BUỘC)</span>
-                  <span className="rounded-full border border-[#a7ddbd] bg-[#e9f8ef] px-1.5 py-0.5 text-[7px] text-[#087b48]">
-                    {role === 'student' ? 'SINH VIÊN' : 'GIẢNG VIÊN'}
-                  </span>
+                  <span className="text-[#555]">TẠO TÀI KHOẢN SINH VIÊN</span>
                 </div>
-                <div role="group" aria-label="Vai trò người dùng" className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    aria-pressed={role === 'student'}
-                    onClick={() => setRole('student')}
-                    className={`min-h-[57px] rounded-lg border px-2 py-1.5 text-left transition ${
-                      role === 'student'
-                        ? 'border-[#222] bg-[#f7f7f7] ring-1 ring-[#222]/10'
-                        : 'border-[#e2e2e2] bg-white hover:bg-[#fafafa]'
-                    }`}
-                  >
-                    <span className="flex items-center justify-between text-[10px] font-semibold">
-                      <span className="flex items-center gap-1">
-                        <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3 w-3" fill="none">
-                          <path d="m2 6 6-3 6 3-6 3-6-3Z M4 7v3c2 2 6 2 8 0V7M14 6v4" stroke="currentColor" strokeLinejoin="round" />
-                        </svg>
-                        Sinh viên
-                      </span>
-                      {role === 'student' && <span aria-hidden="true">⊙</span>}
-                    </span>
-                    <span className="mt-1 block text-[8px] leading-[11px] text-[#666]">
-                      Luyện tập vấn đáp, nộp bài ghi âm &amp; nhận phân tích AI tức thì.
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={role === 'teacher'}
-                    onClick={() => setRole('teacher')}
-                    className={`min-h-[57px] rounded-lg border px-2 py-1.5 text-left transition ${
-                      role === 'teacher'
-                        ? 'border-[#222] bg-[#f7f7f7] ring-1 ring-[#222]/10'
-                        : 'border-[#e2e2e2] bg-white hover:bg-[#fafafa]'
-                    }`}
-                  >
-                    <span className="flex items-center justify-between text-[10px] font-semibold">
-                      <span className="flex items-center gap-1">
-                        <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3 w-3" fill="none">
-                          <path d="M2.5 4.5h11v8h-11zM5 2.5h6M5 7h6M5 9.5h4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        Giảng viên
-                      </span>
-                      {role === 'teacher' && <span aria-hidden="true">⊙</span>}
-                    </span>
-                    <span className="mt-1 block text-[8px] leading-[11px] text-[#666]">
-                      Quản lý lớp học, thiết lập rubric tiêu chuẩn &amp; thẩm định điểm.
-                    </span>
-                  </button>
-                </div>
+                <p className="mb-3 text-[8px] leading-3 text-[#666]">
+                  Tài khoản giảng viên được cấp riêng bởi quản trị viên.
+                </p>
 
                 <div className="mt-3 space-y-[5px]">
                   <div>
                     <label htmlFor="institutional-id" className="mb-1 flex items-center justify-between text-[9px] font-semibold">
-                      <span>Mã số {role === 'student' ? 'Sinh viên (MSSV)' : 'Giảng viên (MSGV)'}</span>
+                      <span>Mã số Sinh viên (MSSV)</span>
                       <span className="font-normal text-[#777]">Cấp bởi Phòng Đào tạo</span>
                     </label>
                     <input
@@ -468,7 +416,7 @@ function Signup() {
                     'Đang tạo tài khoản...'
                   ) : (
                     <>
-                      Đăng ký tài khoản {role === 'student' ? 'Sinh viên' : 'Giảng viên'}
+                      Đăng ký tài khoản Sinh viên
                       <span aria-hidden="true">→</span>
                     </>
                   )}

@@ -1,28 +1,32 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
 
+const waveformHeights = [
+  12, 20, 10, 28, 16, 34, 24, 38, 18, 30, 14, 24, 36, 20, 12, 32, 18, 28,
+  14, 38, 24, 16, 30, 12, 22, 34, 18, 28, 12, 20, 32, 16, 26, 12,
+];
+
 export default function LoginForm() {
   const router = useRouter();
-  const [role, setRole] = useState<'student' | 'lecturer' | 'admin'>('student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setErrorMessage('');
     setLoading(true);
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
-        password: password,
+        password,
       });
 
       if (error) {
@@ -33,235 +37,241 @@ export default function LoginForm() {
         } else {
           setErrorMessage(error.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
         }
-        setLoading(false);
         return;
       }
 
       if (data.session) {
-        // Đăng nhập thành công, chuyển hướng vào trang quản lý công việc
-        router.push('/tasks');
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.session.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          const { error: signOutError } = await supabase.auth.signOut();
+          setErrorMessage(
+            signOutError
+              ? 'Không thể tải hồ sơ hoặc đóng phiên đăng nhập. Hãy tải lại trang và thử lại.'
+              : 'Không thể tải hồ sơ tài khoản. Vui lòng thử lại sau.',
+          );
+          return;
+        }
+
+        if (!profile) {
+          const { error: signOutError } = await supabase.auth.signOut();
+          setErrorMessage(
+            signOutError
+              ? 'Tài khoản chưa có hồ sơ và phiên chưa thể đóng. Hãy tải lại trang hoặc liên hệ quản trị viên.'
+              : 'Tài khoản chưa có hồ sơ. Vui lòng liên hệ quản trị viên.',
+          );
+          return;
+        }
+
+        router.replace(profile.role === 'teacher' ? '/teacher' : '/student');
       }
     } catch {
-      setErrorMessage('Không thể kết nối đến máy chủ xác thực. Kiểm tra mạng hoặc biến môi trường .env.local.');
+      setErrorMessage(
+        'Không thể kết nối đến máy chủ xác thực. Kiểm tra mạng hoặc biến môi trường .env.local.',
+      );
+    } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <main className="min-h-screen w-full flex flex-col lg:flex-row bg-[#f9f9ff] text-[#111c2d] font-sans antialiased">
-      {/* CỘT TRÁI: Branding & Storytelling theo thiết kế Stitch */}
-      <section className="lg:w-1/2 w-full bg-gradient-to-br from-[#1E1B4B] via-[#241E66] to-[#312E81] text-white p-8 lg:p-12 xl:p-16 flex flex-col justify-between relative overflow-hidden">
-        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[#6029c9]/30 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-10 right-0 w-80 h-80 rounded-full bg-[#4338ca]/40 blur-3xl pointer-events-none" />
+    <main className="flex min-h-screen flex-col bg-[#fafafa] text-[#202124] antialiased">
+      <header className="flex h-[62px] shrink-0 items-center justify-between border-b border-[#e9e9e9] bg-white px-5 sm:px-8">
+        <Link href="/login" className="flex items-center gap-2.5" aria-label="AIOralCheck - Trang đăng nhập">
+          <span className="flex h-8 w-8 items-center justify-center gap-[2px] rounded-md bg-[#171923]">
+            <span className="h-3 w-[3px] rounded-full bg-[#a5a0ff]" />
+            <span className="h-5 w-[3px] rounded-full bg-[#726bff]" />
+            <span className="h-3.5 w-[3px] rounded-full bg-[#c4c0ff]" />
+          </span>
+          <span className="text-[15px] font-bold tracking-tight">AIOralCheck</span>
+          <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-[#087b48]" aria-label="Hệ thống hoạt động" />
+        </Link>
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-[#e3dfff] text-2xl shadow-inner">
-              🎙️
+        <nav aria-label="Tiện ích" className="flex items-center gap-2 text-[11px] text-[#555]">
+          <span className="hidden rounded-full border border-[#e5e5e5] bg-[#f7f7f7] px-2.5 py-1 sm:inline-flex">
+            Bảo mật
+          </span>
+          <span className="hidden rounded-full border border-[#e5e5e5] px-2.5 py-1 sm:inline-flex">
+            Trợ giúp khảo thí
+          </span>
+          <span className="rounded-full border border-[#e5e5e5] bg-[#f7f7f7] px-2.5 py-1">
+            VI
+          </span>
+        </nav>
+      </header>
+
+      <div className="mx-auto grid w-full max-w-[1280px] flex-1 grid-cols-1 items-center gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[minmax(0,1fr)_410px] lg:gap-12 xl:gap-16 xl:px-10">
+        <section className="mx-auto w-full max-w-[600px] lg:mx-0">
+          <h1 className="max-w-[570px] text-[32px] font-semibold leading-[1.08] tracking-[-0.045em] sm:text-[38px]">
+            Nền tảng học tập &amp; đánh giá vấn đáp thông minh bằng AI.
+          </h1>
+          <p className="mt-3 max-w-[560px] text-[14px] leading-[1.7] text-[#666]">
+            Hệ thống phân tích phổ âm học thời gian thực với độ trễ thấp &lt;15s.
+            Kết hợp Acoustic-LLM chấm điểm tự động đa chiều theo khung năng lực
+            chuẩn CEFR và Rubric đào tạo đa quốc gia.
+          </p>
+
+          <div className="mt-6 rounded-[18px] border border-[#e5e5e5] bg-white p-4 shadow-[0_8px_24px_rgba(0,0,0,0.03)] sm:p-5">
+            <div className="flex items-center gap-2.5 border-b border-[#ededed] pb-3">
+              <span className="h-2 w-2 rounded-full bg-[#7168ff]" />
+              <h2 className="text-[13px] font-semibold">Kiểm tra giọng nói trước khi vào phòng thi</h2>
             </div>
-            <div>
-              <span className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                OralEval IE104
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#e9ddff] text-[#23005c] border border-[#d0bcff]/40">
-                  AI Powered
-                </span>
+            <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-[#777]">
+              <span>Phổ âm phổ thoại (Speech Spectral Feed):</span>
+              <span className="shrink-0 font-semibold text-[#333]">-18.4 dBFS (Tối ưu)</span>
+            </div>
+            <div
+              aria-label="Minh họa phổ âm thanh"
+              className="mt-2 flex h-11 items-center justify-between gap-[3px] overflow-hidden rounded-lg bg-[#f2f2f2] px-3"
+            >
+              {waveformHeights.map((height, index) => (
+                <span
+                  key={`${height}-${index}`}
+                  className={`w-[2px] shrink-0 rounded-full ${
+                    index % 7 === 4 || index % 7 === 5 ? 'bg-[#7168ff]' : 'bg-[#292929]'
+                  }`}
+                  style={{ height }}
+                />
+              ))}
+            </div>
+            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[10px] text-[#666]">
+              <span className="flex items-center gap-1.5">
+                <span className="text-[#087b48]" aria-hidden="true">●</span>
+                Microphone: Built-in Array (CoreAudio)
               </span>
-              <p className="text-xs text-[#d8e3fb] font-medium">Hệ thống Đánh giá Vấn đáp Trực tuyến Thông minh</p>
+              <span className="font-medium text-[#555]">Minh họa tín hiệu âm thanh</span>
             </div>
           </div>
 
-          <div className="mt-6 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[#c3c0ff] text-xs font-semibold">
-            <span>🏫</span>
-            <span>Được tối ưu cho môn IE104 - UIT (ĐHQG-HCM)</span>
-          </div>
-        </div>
-
-        {/* Live Audio Simulation Box */}
-        <div className="my-8 relative z-10 w-full max-w-lg mx-auto lg:mx-0 bg-white/10 backdrop-blur-xl border border-white/20 p-5 rounded-2xl shadow-2xl space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <span className="text-xs font-semibold tracking-wider text-white flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-              LIVE RECORDING #SESSION-829
-            </span>
-            <span className="text-xs font-mono text-[#dee8ff] bg-white/10 px-2 py-0.5 rounded">02:47.38</span>
-          </div>
-
-          <div className="bg-[#263143]/80 rounded-xl p-3.5 border border-white/10">
-            <div className="flex items-center justify-between text-xs text-[#d8e3fb] mb-2">
-              <span>Phổ tần số âm thanh giọng nói</span>
-              <span className="text-[#4edea3] font-mono text-[10px]">48kHz • 24-bit Lossless</span>
+          <div className="mt-6 grid grid-cols-3 divide-x divide-[#e8e8e8] border-y border-[#e8e8e8] py-3">
+            <div className="pr-3">
+              <p className="text-[20px] font-bold tracking-tight">50+</p>
+              <p className="text-[10px] leading-tight text-[#777]">Trường Đại học tin dùng</p>
             </div>
-            <div className="h-10 flex items-center justify-center gap-1.5 px-2">
-              <span className="w-1.5 h-6 bg-[#cbd5e1] rounded-full animate-pulse" />
-              <span className="w-1.5 h-9 bg-[#e3dfff] rounded-full animate-pulse" />
-              <span className="w-1.5 h-7 bg-[#4edea3] rounded-full animate-pulse" />
-              <span className="w-1.5 h-10 bg-[#c3c0ff] rounded-full animate-pulse" />
-              <span className="w-1.5 h-5 bg-[#f59e0b] rounded-full animate-pulse" />
-              <span className="w-1.5 h-8 bg-[#4edea3] rounded-full animate-pulse" />
-              <span className="w-1.5 h-4 bg-[#cbd5e1] rounded-full animate-pulse" />
+            <div className="px-3">
+              <p className="text-[20px] font-bold tracking-tight">150,000+</p>
+              <p className="text-[10px] leading-tight text-[#777]">Bài thi vấn đáp đã phân tích</p>
+            </div>
+            <div className="pl-3">
+              <p className="text-[20px] font-bold tracking-tight text-[#087b48]">99.4%</p>
+              <p className="text-[10px] leading-tight text-[#777]">Độ tương thích Rubric chuẩn</p>
             </div>
           </div>
+        </section>
 
-          <div className="p-3 rounded-xl bg-white/10 border border-white/20 text-xs">
-            <div className="flex items-center justify-between font-semibold text-white">
-              <span>Chấm điểm Barem IE104</span>
-              <span className="text-[#6cf8bb] bg-[#006c49]/40 px-2 py-0.5 rounded font-mono">9.5/10</span>
-            </div>
-            <p className="text-[#d8e3fb] mt-1 text-[11px] leading-relaxed">
-              Phát hiện thuật ngữ: &quot;ACID transactions&quot;, &quot;CAP theorem&quot;. Độ trôi chảy đạt 94.2%.
-            </p>
-          </div>
-        </div>
-
-        {/* 3 Core Highlights */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 relative z-10 pt-4 border-t border-white/15 text-xs">
-          <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-            <div className="font-semibold text-white">Phân tích Realtime</div>
-            <p className="text-[#d8e3fb] text-[11px] mt-0.5">Bóc tách transcript tức thời.</p>
-          </div>
-          <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-            <div className="font-semibold text-white">Chuẩn Barem Khoa</div>
-            <p className="text-[#d8e3fb] text-[11px] mt-0.5">Đối soát rubric chuẩn xác.</p>
-          </div>
-          <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-            <div className="font-semibold text-white">Tiết kiệm 85%</div>
-            <p className="text-[#d8e3fb] text-[11px] mt-0.5">Rút ngắn thời gian chấm.</p>
-          </div>
-        </div>
-
-        <div className="mt-6 pt-3 flex items-center justify-between text-[#d8e3fb]/80 text-xs relative z-10">
-          <span>Bản quyền © 2026 ĐH Công nghệ Thông tin - ĐHQG-HCM</span>
-          <span className="font-mono text-[10px]">v2.4.1-stable</span>
-        </div>
-      </section>
-
-      {/* CỘT PHẢI: Form Đăng nhập Supabase Auth thật */}
-      <section className="lg:w-1/2 w-full bg-white flex items-center justify-center p-6 sm:p-10 lg:p-14">
-        <div className="w-full max-w-md space-y-6">
-          <div>
-            <div className="inline-flex items-center gap-1 text-[#2a14b4] text-xs font-semibold uppercase tracking-wider mb-1">
-              🛡️ HỆ THỐNG KHẢO THÍ CHÍNH THỨC
-            </div>
-            <h1 className="text-3xl font-bold text-[#111c2d] tracking-tight">Đăng nhập</h1>
-            <p className="text-sm text-[#464554] mt-1">Đăng nhập tài khoản để quản lý Việc học của tôi</p>
-          </div>
-
-          {/* Chọn vai trò */}
-          <div>
-            <label className="block text-xs font-semibold text-[#464554] mb-2">Vai trò truy cập của bạn</label>
-            <div className="grid grid-cols-3 p-1 rounded-xl bg-[#f0f3ff] border border-[#c7c4d7]/60">
-              <button
-                type="button"
-                onClick={() => setRole('student')}
-                className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-                  role === 'student' ? 'bg-white text-[#2a14b4] shadow-sm' : 'text-[#464554] hover:text-[#111c2d]'
-                }`}
+        <section className="mx-auto w-full max-w-[440px] overflow-hidden rounded-[18px] border border-[#e8e8e8] bg-white shadow-[0_12px_35px_rgba(0,0,0,0.06)] lg:mx-0">
+          <div className="h-[3px] bg-gradient-to-r from-[#22222a] via-[#7168ff] to-[#22222a]" />
+          <div className="p-5 sm:p-6">
+            <div className="grid grid-cols-2 rounded-[10px] bg-[#efefef] p-1">
+              <span
+                aria-current="page"
+                className="flex h-9 items-center justify-center rounded-[7px] bg-white text-[12px] font-semibold shadow-sm"
               >
-                🎓 Sinh viên
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('lecturer')}
-                className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-                  role === 'lecturer' ? 'bg-white text-[#2a14b4] shadow-sm' : 'text-[#464554] hover:text-[#111c2d]'
-                }`}
+                Đăng nhập
+              </span>
+              <Link
+                href="/signup"
+                className="flex h-9 items-center justify-center rounded-[7px] text-[12px] font-medium text-[#555] transition hover:text-[#171717] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7168ff]"
               >
-                👨‍🏫 Giảng viên
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('admin')}
-                className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-                  role === 'admin' ? 'bg-white text-[#2a14b4] shadow-sm' : 'text-[#464554] hover:text-[#111c2d]'
-                }`}
-              >
-                ⚙️ Quản trị viên
-              </button>
-            </div>
-          </div>
-
-          {/* Hiển thị lỗi xác thực nếu có */}
-          {errorMessage && (
-            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
-              <span>⚠️</span>
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Form nhập tài khoản */}
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="block text-sm font-medium text-[#111c2d] mb-1.5" htmlFor="email-input">
-                Email tài khoản <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <input
-                id="email-input"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-                className="w-full rounded-lg border border-[#c7c4d7] bg-white px-3.5 py-2.5 text-sm text-[#111c2d] placeholder-[#777586] focus:border-[#2a14b4] focus:ring-2 focus:ring-[#2a14b4]/20 outline-none transition-colors disabled:opacity-50"
-                placeholder="usera@gm.uit.edu.vn"
-              />
+                Đăng ký tài khoản
+              </Link>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-[#111c2d] mb-1.5" htmlFor="password-input">
-                Mật khẩu <span className="text-[#ba1a1a]">*</span>
-              </label>
-              <div className="relative">
+            <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+              {errorMessage && (
+                <p
+                  role="alert"
+                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700"
+                >
+                  {errorMessage}
+                </p>
+              )}
+
+              <div>
+                <label
+                  className="mb-1.5 block text-[10px] font-semibold text-[#444]"
+                  htmlFor="email-input"
+                >
+                  Email tài khoản
+                  <span className="float-right font-normal text-[#777]">Dùng email đã đăng ký</span>
+                </label>
                 <input
-                  id="password-input"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  id="email-input"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                   required
                   disabled={loading}
-                  className="w-full rounded-lg border border-[#c7c4d7] bg-white px-3.5 py-2.5 pr-12 text-sm text-[#111c2d] placeholder-[#777586] focus:border-[#2a14b4] focus:ring-2 focus:ring-[#2a14b4]/20 outline-none transition-colors disabled:opacity-50"
-                  placeholder="••••••••••••"
+                  className="h-10 w-full rounded-md border border-[#d4d4d4] bg-[#f3f3f3] px-3 text-[12px] text-[#202124] outline-none transition focus:border-[#777] focus:bg-white focus:ring-2 focus:ring-[#777]/15 disabled:opacity-60"
+                  placeholder="ten@trường.edu.vn"
                 />
-                <button
-                  type="button"
-                  aria-label="Hiện hoặc ẩn mật khẩu"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                  className="absolute inset-y-0 right-0 px-3 flex items-center text-xs text-[#777586] hover:text-[#111c2d]"
-                >
-                  {showPassword ? 'Ẩn' : 'Hiện'}
-                </button>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-11 rounded-lg bg-[#2a14b4] hover:bg-[#372abf] text-white text-sm font-semibold shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span>Đang xác thực...</span>
-              ) : (
-                <>
-                  <span>Đăng nhập ngay</span>
-                  <span>→</span>
-                </>
-              )}
-            </button>
-            <Link
-              href="/signup"
-              className="flex h-11 w-full items-center justify-center rounded-lg border border-[#2a14b4] bg-white text-sm font-semibold text-[#2a14b4] transition-colors hover:bg-[#f5f3ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2a14b4]"
-            >
-              Đăng ký tài khoản
-            </Link>
-          </form>
+              <div>
+                <label
+                  className="mb-1.5 block text-[10px] font-semibold text-[#444]"
+                  htmlFor="password-input"
+                >
+                  Mật khẩu
+                </label>
+                <div className="relative">
+                  <input
+                    id="password-input"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                    disabled={loading}
+                    className="h-10 w-full rounded-md border border-[#d4d4d4] bg-[#f3f3f3] px-3 pr-12 text-[12px] text-[#202124] outline-none transition focus:border-[#777] focus:bg-white focus:ring-2 focus:ring-[#777]/15 disabled:opacity-60"
+                    placeholder="Nhập mật khẩu"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    disabled={loading}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-[10px] text-[#666] hover:text-[#222] focus-visible:outline-2 focus-visible:outline-[#7168ff] disabled:opacity-60"
+                  >
+                    {showPassword ? 'Ẩn' : 'Hiện'}
+                  </button>
+                </div>
+              </div>
 
-          <div className="pt-2 text-center text-xs text-[#464554]">
-            Hệ thống kết nối xác thực qua Supabase Auth (Bài thực hành 2)
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#151617] px-4 text-[12px] font-semibold text-white transition hover:bg-[#303234] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7168ff] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading
+                  ? 'Đang xác thực...'
+                  : 'Đăng nhập ngay vào hệ thống →'}
+              </button>
+            </form>
+
+            <p className="mt-4 border-t border-[#ededed] pt-3 text-center text-[10px] leading-relaxed text-[#777]">
+              Đăng nhập bảo mật qua Supabase Auth.
+            </p>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
+
+      <footer className="flex min-h-[48px] flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-[#e8e8e8] bg-white px-5 py-3 text-[10px] text-[#666] sm:px-8">
+        <span className="font-medium text-[#333]">© 2026 AIOralCheck. Bản quyền thuộc về nhóm 3.</span>
+        <span className="flex items-center gap-4">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#087b48]" />
+          <span>Quy chuẩn dữ liệu âm thanh</span>
+          <span>Điều khoản dịch vụ</span>
+        </span>
+      </footer>
     </main>
   );
 }
