@@ -1,10 +1,11 @@
 import Link from 'next/link';
 
-type TeacherPage = 'overview' | 'classes';
+type TeacherPage = 'overview' | 'classes' | 'profile' | 'settings';
 
 const iconPaths = {
   overview: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
   classes: 'M2 9l10-5 10 5-10 5L2 9z M6 11v5c3 2 9 2 12 0v-5 M22 9v6',
+  profile: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   exam: 'M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z M19 10v1a7 7 0 0 1-14 0v-1 M12 18v4 M8 22h8',
   recordings: 'M3 10v4 M7 6v12 M11 3v18 M15 8v8 M19 5v14 M23 10v4',
   telemetry: 'M3 17l6-6 4 4 8-8 M15 7h6v6',
@@ -55,6 +56,12 @@ export default function TeacherSidebar({ currentPage, signingOut, onSignOut, onU
           </Link>
           <Link href="/teacher/classes" aria-current={currentPage === 'classes' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'classes' ? activeClass : inactiveClass}`}>
             <SidebarIcon name="classes" />Lớp học &amp; Hội đồng
+          </Link>
+          <Link href="/teacher/profile" aria-current={currentPage === 'profile' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'profile' ? activeClass : inactiveClass}`}>
+            <SidebarIcon name="profile" />Hồ sơ cá nhân
+          </Link>
+          <Link href="/teacher/settings" aria-current={currentPage === 'settings' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'settings' ? activeClass : inactiveClass}`}>
+            <SidebarIcon name="settings" />Cài đặt cá nhân
           </Link>
           {actionLabels.map(({ icon, label }) => (
             <button key={label} type="button" disabled={!unavailableItemsInteractive} title={unavailableItemsInteractive ? undefined : 'Chức năng sẽ khả dụng khi được triển khai'} onClick={() => onUnavailable(label)} className={`${navItemClass} ${unavailableItemsInteractive ? inactiveClass : 'cursor-not-allowed text-[#505258]'}`}>

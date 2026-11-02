@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase-browser';
 import { getCachedProfile, getCachedProfileForRole } from '@/lib/profile-cache';
 import TeacherSidebar from '@/components/TeacherSidebar';
@@ -213,7 +214,10 @@ export default function TeacherDashboard() {
               <p className="mt-1 text-[12px] text-[#5f6063]">Tổng hợp tình hình các lớp khảo thí âm học và các bài thi cần thẩm định điểm hôm nay.</p>
               <span className="mt-2 inline-flex rounded-full border border-[#eadcae] bg-[#fff9e9] px-2 py-0.5 text-[8px] font-semibold text-[#81621c]">DỮ LIỆU DASHBOARD MINH HỌA</span>
             </div>
-            <button type="button" onClick={() => setActiveDialog('report')} className="flex h-10 items-center gap-2 rounded-full border border-[#d1d1d1] bg-white px-4 text-[11px] font-medium hover:bg-[#f6f6f6]"><Icon name="download" className="h-4 w-4" />Xuất báo cáo tổng hợp</button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/teacher/profile" className="flex h-10 items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-100"><Icon name="users" className="h-4 w-4" />Hồ sơ cá nhân</Link>
+              <button type="button" onClick={() => setActiveDialog('report')} className="flex h-10 items-center gap-2 rounded-full border border-[#d1d1d1] bg-white px-4 text-[11px] font-medium hover:bg-[#f6f6f6]"><Icon name="download" className="h-4 w-4" />Xuất báo cáo tổng hợp</button>
+            </div>
           </div>
 
           {errorMessage && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">{errorMessage}</p>}

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-type StudentPage = 'overview' | 'tasks';
+type StudentPage = 'overview' | 'tasks' | 'classes' | 'recorder';
 type SidebarAction = 'classes' | 'audio' | 'history' | 'settings';
 
 const iconPaths = {
@@ -86,7 +86,17 @@ export default function StudentSidebar({
               Tổng quan
             </Link>
           )}
-          {unavailableItem('classes', 'classes', 'Lớp học của tôi')}
+          {currentPage === 'classes' ? (
+            <span aria-current="page" className={`${itemClass} ${activeClass}`}>
+              <SidebarIcon name="classes" />
+              Lớp học của tôi
+            </span>
+          ) : (
+            <Link href="/student/classes" className={itemClass}>
+              <SidebarIcon name="classes" />
+              Lớp học của tôi
+            </Link>
+          )}
           {currentPage === 'tasks' ? (
             <span aria-current="page" className={`${itemClass} ${activeClass}`}>
               <SidebarIcon name="tasks" />
@@ -98,7 +108,17 @@ export default function StudentSidebar({
               Bài tập oral
             </Link>
           )}
-          {unavailableItem('audio', 'mic', 'Phòng thu âm AI')}
+          {currentPage === 'recorder' ? (
+            <span aria-current="page" className={`${itemClass} ${activeClass}`}>
+              <SidebarIcon name="mic" />
+              Phòng thu âm AI
+            </span>
+          ) : (
+            <Link href="/student/recorder" className={itemClass}>
+              <SidebarIcon name="mic" />
+              Phòng thu âm AI
+            </Link>
+          )}
           {unavailableItem('history', 'history', 'Lịch sử & Bảng xếp hạng')}
           {unavailableItem('settings', 'settings', 'Cài đặt')}
         </div>

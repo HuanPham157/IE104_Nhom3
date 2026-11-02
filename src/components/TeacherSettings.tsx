@@ -1,0 +1,369 @@
+'use client';
+
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { supabase } from '@/lib/supabase-browser';
+import TeacherPageShell, { type TeacherPageProfile } from '@/components/TeacherPageShell';
+
+type SettingsTab = 'profile' | 'security' | 'certificate' | 'audio';
+
+function SettingsIcon({ name }: { name: 'profile' | 'lock' | 'key' | 'mic' | 'check' | 'cloud' | 'bell' | 'shield' }) {
+  const paths = {
+    profile: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    lock: 'M5 11h14v10H5z M8 11V7a4 4 0 1 1 8 0v4',
+    key: 'M21 2l-2 2m-7.5 7.5a5 5 0 1 1-7.07 7.07 5 5 0 0 1 7.07-7.07z M14.5 9.5 21 3m-3 3 2 2',
+    mic: 'M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z M19 10v1a7 7 0 0 1-14 0v-1 M12 18v4 M8 22h8',
+    check: 'M20 6 9 17l-5-5',
+    cloud: 'M20 16.2A4.5 4.5 0 0 0 18 7.5a6 6 0 0 0-11.5 1.8A4 4 0 0 0 7 17h3 M12 13l-3 3 3 3 M9 16h8',
+    bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4',
+    shield: 'M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z M9 12l2 2 4-4',
+  };
+  return <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24"><path d={paths[name]} /></svg>;
+}
+
+function SettingTab({ id, activeTab, onSelect, icon, children }: {
+  id: SettingsTab;
+  activeTab: SettingsTab;
+  onSelect: (tab: SettingsTab) => void;
+  icon: 'profile' | 'lock' | 'key' | 'mic';
+  children: string;
+}) {
+  return (
+    <button type="button" role="tab" aria-selected={activeTab === id} onClick={() => onSelect(id)} className={`flex min-w-[155px] flex-1 items-center justify-center gap-2 border-b-2 px-4 py-3 text-center text-[10px] font-medium transition ${activeTab === id ? 'border-black text-gray-950' : 'border-transparent text-gray-600 hover:bg-gray-50'}`}>
+      <SettingsIcon name={icon} />{children}
+    </button>
+  );
+}
+
+function Field({ label, value, disabled = false, type = 'text' }: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  type?: 'text' | 'email' | 'tel';
+}) {
+  return (
+    <label className="block min-w-0">
+      <span className="mb-1.5 block text-[10px] font-semibold text-gray-600">{label}</span>
+      <input type={type} readOnly value={value} aria-disabled={disabled} className={`h-10 w-full rounded-lg border px-3 text-[11px] outline-none ${disabled ? 'border-gray-200 bg-gray-100 text-gray-500' : 'border-gray-300 bg-white text-gray-900'}`} />
+    </label>
+  );
+}
+
+function PasswordSettings({ email }: { email: string }) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [message, setMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const strength = [
+    newPassword.length >= 10,
+    /[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword),
+    /\d/.test(newPassword),
+    /[^A-Za-z0-9]/.test(newPassword),
+  ].filter(Boolean).length;
+  const strengthLabel = newPassword.length === 0 ? 'Nhập mật khẩu mới' : strength >= 4 ? 'Mạnh' : strength >= 2 ? 'Trung bình' : 'Yếu';
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage('');
+    setErrorMessage('');
+    if (newPassword.length < 10) {
+      setErrorMessage('Mật khẩu mới cần có ít nhất 10 ký tự.');
+      return;
+    }
+    if (newPassword !== confirmation) {
+      setErrorMessage('Mật khẩu xác nhận chưa khớp.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setErrorMessage('Mật khẩu mới phải khác mật khẩu hiện tại.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
+      if (signInError) {
+        setErrorMessage('Mật khẩu hiện tại không chính xác hoặc không thể xác minh tài khoản.');
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        setErrorMessage('Không thể cập nhật mật khẩu. Hãy kiểm tra kết nối hoặc chính sách xác thực rồi thử lại.');
+        return;
+      }
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmation('');
+      setMessage('Mật khẩu đã được cập nhật thành công.');
+    } catch {
+      setErrorMessage('Không thể kết nối để cập nhật mật khẩu. Vui lòng thử lại.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-xl border border-gray-200 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div><h3 className="text-[12px] font-semibold">Đổi mật khẩu tài khoản</h3><p className="mt-1 text-[10px] text-gray-500">Chọn mật khẩu dài ít nhất 10 ký tự.</p></div>
+        <span className="text-[9px] text-gray-500">Xác thực bảo mật qua Supabase</span>
+      </div>
+      <div className="mt-4 space-y-3">
+        <label className="block"><span className="sr-only">Mật khẩu hiện tại</span><input aria-label="Mật khẩu hiện tại" type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Mật khẩu hiện tại" className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[11px] outline-none focus:border-gray-500" /></label>
+        <label className="block"><span className="sr-only">Mật khẩu mới</span><input aria-label="Mật khẩu mới" type="password" autoComplete="new-password" minLength={10} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Mật khẩu mới (tối thiểu 10 ký tự)" className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[11px] outline-none focus:border-gray-500" /></label>
+        <div aria-label={`Độ mạnh mật khẩu: ${strengthLabel}`} className="flex items-center gap-1.5">
+          {[0, 1, 2, 3].map((segment) => <span key={segment} className={`h-1 flex-1 rounded-full ${segment < strength ? strength >= 4 ? 'bg-emerald-700' : strength >= 2 ? 'bg-amber-500' : 'bg-red-500' : 'bg-gray-200'}`} />)}
+          <span className={`min-w-[72px] text-right text-[9px] ${strength >= 4 ? 'text-emerald-700' : 'text-gray-500'}`}>{strengthLabel}</span>
+        </div>
+        <label className="block"><span className="sr-only">Xác nhận mật khẩu mới</span><input aria-label="Xác nhận mật khẩu mới" type="password" autoComplete="new-password" required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Xác nhận mật khẩu mới" className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[11px] outline-none focus:border-gray-500" /></label>
+      </div>
+      {errorMessage && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-[10px] text-red-700">{errorMessage}</p>}
+      {message && <p role="status" className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-[10px] text-emerald-800">{message}</p>}
+      <button type="submit" disabled={saving} className="mt-4 h-9 rounded-full bg-black px-4 text-[10px] font-semibold text-white hover:bg-gray-800 disabled:cursor-wait disabled:opacity-60">{saving ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}</button>
+    </form>
+  );
+}
+
+function AudioSettings() {
+  const [deviceId, setDeviceId] = useState('');
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [isTesting, setIsTesting] = useState(false);
+  const [level, setLevel] = useState(0);
+  const [errorMessage, setErrorMessage] = useState('');
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const frameRef = useRef<number | null>(null);
+
+  function stopTest() {
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    const audioContext = audioContextRef.current;
+    audioContextRef.current = null;
+    if (audioContext && audioContext.state !== 'closed') void audioContext.close();
+    setIsTesting(false);
+    setLevel(0);
+  }
+
+  useEffect(() => () => {
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') void audioContextRef.current.close();
+  }, []);
+
+  async function startTest() {
+    setErrorMessage('');
+    if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
+      setErrorMessage('Trình duyệt này không hỗ trợ kiểm tra microphone. Hãy dùng trình duyệt hiện đại qua HTTPS.');
+      return;
+    }
+    stopTest();
+    try {
+      const audio = deviceId ? { deviceId: { exact: deviceId } } : true;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
+      streamRef.current = stream;
+      const audioContext = new window.AudioContext();
+      audioContextRef.current = audioContext;
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const samples = new Uint8Array(analyser.fftSize);
+      setIsTesting(true);
+
+      const refreshLevel = () => {
+        analyser.getByteTimeDomainData(samples);
+        const rms = Math.sqrt(samples.reduce((sum, sample) => sum + (sample - 128) ** 2, 0) / samples.length) / 128;
+        const decibels = rms > 0 ? Math.max(-60, Math.round(20 * Math.log10(rms))) : -60;
+        setLevel(decibels);
+        frameRef.current = window.requestAnimationFrame(refreshLevel);
+      };
+      await audioContext.resume();
+      frameRef.current = window.requestAnimationFrame(refreshLevel);
+
+      const availableDevices = await navigator.mediaDevices.enumerateDevices();
+      setDevices(availableDevices.filter((device) => device.kind === 'audioinput'));
+      if (!deviceId && stream.getAudioTracks()[0]?.getSettings().deviceId) {
+        setDeviceId(stream.getAudioTracks()[0].getSettings().deviceId ?? '');
+      }
+    } catch (error) {
+      stopTest();
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        setErrorMessage('Quyền microphone chưa được cấp. Hãy cho phép truy cập trong cài đặt trình duyệt.');
+      } else if (error instanceof DOMException && error.name === 'NotFoundError') {
+        setErrorMessage('Không tìm thấy microphone. Hãy kết nối thiết bị rồi thử lại.');
+      } else if (error instanceof DOMException && error.name === 'NotReadableError') {
+        setErrorMessage('Microphone đang được ứng dụng khác sử dụng. Hãy đóng ứng dụng đó rồi thử lại.');
+      } else {
+        setErrorMessage('Không thể kiểm tra microphone. Vui lòng kiểm tra thiết bị và thử lại.');
+      }
+    }
+  }
+
+  const signalPercent = Math.max(0, Math.min(100, ((level + 60) / 60) * 100));
+  return (
+    <section className="rounded-xl border border-gray-200 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><h3 className="text-[12px] font-semibold">Tùy chọn Khảo thí &amp; Âm thanh phòng lab</h3><p className="mt-1 text-[10px] text-gray-500">Kiểm tra microphone thật trên thiết bị của bạn. Âm thanh chỉ được phân tích tại trình duyệt, không ghi hoặc tải lên.</p></div>
+        <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[9px] font-semibold text-indigo-800">AI DSP · Kiểm tra cục bộ</span>
+      </div>
+      <div className="mt-4 border-t border-gray-200 pt-4">
+        <label className="block text-[10px] font-semibold text-gray-600" htmlFor="teacher-audio-device">Thiết bị đầu vào mặc định (Input Audio Interface)</label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <select id="teacher-audio-device" aria-label="Thiết bị microphone" value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={isTesting} className="h-10 min-w-[220px] flex-1 rounded-lg border border-gray-300 bg-white px-3 text-[11px] disabled:bg-gray-100">
+            <option value="">Microphone mặc định</option>
+            {devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `Microphone ${index + 1}`}</option>)}
+          </select>
+          <button type="button" onClick={isTesting ? stopTest : () => void startTest()} className={`h-10 rounded-lg border px-4 text-[10px] font-medium ${isTesting ? 'border-red-200 bg-red-50 text-red-700' : 'border-gray-300 bg-gray-100 text-gray-800 hover:bg-gray-200'}`}>{isTesting ? 'Dừng kiểm tra' : 'Thử mic & Đo âm'}</button>
+        </div>
+        {errorMessage && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-[10px] text-red-700">{errorMessage}</p>}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div><p className="text-[10px] font-semibold">Mức tín hiệu đầu vào: {isTesting ? `${level} dBFS` : 'Chưa kiểm tra'}</p><p className="mt-1 text-[9px] text-gray-500">{isTesting ? 'Mức âm thanh cập nhật trực tiếp từ microphone.' : 'Cấp quyền microphone để đo mức âm thanh.'}</p></div>
+          <div className="flex h-9 w-36 items-center gap-1 rounded-lg bg-white px-2" aria-label={isTesting ? `Mức tín hiệu ${level} dBFS` : 'Chưa đo mức tín hiệu'}>
+            {Array.from({ length: 16 }, (_, index) => <span key={index} className={`h-2 flex-1 rounded-full ${isTesting && index / 16 <= signalPercent / 100 ? index > 11 ? 'bg-red-500' : index > 7 ? 'bg-indigo-500' : 'bg-emerald-600' : 'bg-gray-200'}`} />)}
+            <span className="ml-1 text-[8px] text-gray-500">dBFS</span>
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 border-t border-gray-200 pt-4">
+        <ToggleSetting title="Tự động bật khử nhiễu môi trường AI" description="Cấu hình giao diện cho hệ thống lọc tiếng ồn khi chấm thi trực tiếp." defaultChecked />
+      </div>
+    </section>
+  );
+}
+
+function ToggleSetting({ title, description, defaultChecked = false }: { title: string; description: string; defaultChecked?: boolean }) {
+  const [enabled, setEnabled] = useState(defaultChecked);
+  return (
+    <label className="flex cursor-pointer items-start justify-between gap-4">
+      <span><span className="block text-[11px] font-semibold">{title}</span><span className="mt-1 block max-w-3xl text-[10px] leading-relaxed text-gray-500">{description}</span></span>
+      <input type="checkbox" role="switch" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-indigo-800" />
+    </label>
+  );
+}
+
+function TeacherSettingsContent({ profile }: { profile: TeacherPageProfile }) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  const [notice, setNotice] = useState('');
+  const tabs: { id: SettingsTab; label: string; icon: 'profile' | 'lock' | 'key' | 'mic' }[] = [
+    { id: 'profile', label: 'Thông tin học thuật & Hồ sơ', icon: 'profile' },
+    { id: 'security', label: 'Bảo mật & Mật khẩu', icon: 'lock' },
+    { id: 'certificate', label: 'Chữ ký số & Chứng thư HSM', icon: 'key' },
+    { id: 'audio', label: 'Thiết bị Âm thanh & Thông báo', icon: 'mic' },
+  ];
+
+  function selectTab(tab: SettingsTab) {
+    setActiveTab(tab);
+    setNotice('');
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-gray-200 pb-4">
+        <div>
+          <h1 className="text-[23px] font-bold leading-tight sm:text-[28px]">Cài đặt Cá nhân &amp; Hồ sơ Giảng viên <span className="ml-1 inline-flex align-middle rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[9px] font-semibold text-indigo-800">Verified Faculty</span></h1>
+          <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-gray-600">Quản lý thông tin học thuật, bảo mật tài khoản, chứng thư số cá nhân và cấu hình thiết bị âm học phòng thu lab.</p>
+        </div>
+        <span className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[10px] text-gray-500"><SettingsIcon name="shield" />HSM: Chưa kết nối</span>
+      </div>
+
+      <div role="tablist" aria-label="Mục cài đặt giảng viên" className="mt-4 flex overflow-x-auto border-b border-gray-200 bg-white">
+        {tabs.map((tab) => <SettingTab key={tab.id} id={tab.id} icon={tab.icon} activeTab={activeTab} onSelect={selectTab}>{tab.label}</SettingTab>)}
+      </div>
+
+      {activeTab === 'profile' && (
+        <section className="mt-4 rounded-2xl border border-[#e1e1e1] bg-white p-4 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4">
+            <div><h2 className="text-[15px] font-bold">Thông tin Định danh Giảng viên</h2><p className="mt-1 text-[10px] text-gray-500">Dữ liệu tài khoản được đồng bộ từ thông tin đăng ký hiện có.</p></div>
+            <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[9px] font-semibold text-indigo-800">Giảng viên · {profile.faculty || 'Chưa cập nhật khoa'}</span>
+          </div>
+          <div className="mt-4 flex flex-wrap items-start gap-4 rounded-xl bg-gray-50 p-4">
+            <div className="flex h-[84px] w-[84px] items-center justify-center rounded-xl border border-gray-200 bg-indigo-50 text-xl font-bold text-indigo-800">{profile.fullName.split(/\s+/).slice(-2).map((part) => part[0]?.toLocaleUpperCase() ?? '').join('') || 'GV'}</div>
+            <div className="max-w-md"><p className="text-[11px] font-semibold">Ảnh chân dung</p><p className="mt-1 text-[10px] leading-relaxed text-gray-500">Ảnh đại diện sẽ khả dụng sau khi tích hợp lưu trữ hồ sơ. Không tải ảnh lên trong bản xem trước này.</p><button type="button" disabled title="Chưa tích hợp tải ảnh hồ sơ" className="mt-2 rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-[9px] text-gray-500">Thay đổi ảnh · Chưa khả dụng</button></div>
+            <span className="ml-auto rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-[9px] font-medium text-indigo-800">Hồ sơ tài khoản</span>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Họ và tên" value={profile.fullName || 'Chưa cập nhật'} />
+            <Field label="Mã giảng viên (MSGV)" value={profile.institutionalId || 'Chưa cập nhật'} disabled />
+            <Field label="Email học thuật" value={profile.email || 'Chưa cập nhật'} type="email" />
+            <Field label="Số điện thoại liên hệ" value="" type="tel" />
+            <Field label="Hướng nghiên cứu chính / Chuyên ngành" value={profile.faculty || 'Chưa cập nhật'} />
+          </div>
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[10px] leading-relaxed text-amber-900">Các trường hồ sơ ở chế độ chỉ đọc vì chưa có API lưu hồ sơ giảng viên. Không có thay đổi nào được lưu giả lập.</p>
+        </section>
+      )}
+
+      {activeTab === 'security' && (
+        <section className="mt-4 rounded-2xl border border-[#e1e1e1] bg-white p-4 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4">
+            <div><h2 className="text-[15px] font-bold">Bảo mật &amp; Ký số Khảo thí</h2><p className="mt-1 text-[10px] text-gray-500">Quản lý bảo vệ tài khoản và xác thực khi truy cập dữ liệu khảo thí.</p></div>
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[9px] font-semibold text-amber-800">HSM · Chưa tích hợp</span>
+          </div>
+          <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><h3 className="flex items-center gap-2 text-[11px] font-semibold"><SettingsIcon name="key" />Token ký số Cloud HSM</h3><p className="mt-1 text-[10px] text-gray-500">Nhà cung cấp, chứng thư và dịch vụ ký số chưa kết nối.</p></div>
+              <button type="button" disabled className="rounded-full border border-gray-200 bg-white px-3 py-2 text-[9px] text-gray-500">Kiểm tra chứng thư · Chưa khả dụng</button>
+            </div>
+            <div className="mt-3 grid gap-2 text-[10px] sm:grid-cols-3">
+              <p className="rounded-lg bg-white p-3">Trạng thái: <b className="text-amber-800">Chưa kết nối</b></p>
+              <p className="rounded-lg bg-white p-3">Nhà cung cấp: <b>Chưa cấu hình</b></p>
+              <p className="rounded-lg bg-white p-3">Chuẩn ký: <b>Chưa cấu hình</b></p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="flex min-h-[150px] flex-col rounded-xl border border-gray-200 p-4">
+              <div className="flex items-start justify-between gap-3"><div><h3 className="flex items-center gap-2 text-[11px] font-semibold text-emerald-800"><SettingsIcon name="shield" />Xác thực 2 bước (2FA)</h3><p className="mt-1 text-[10px] text-gray-500">Thêm lớp bảo vệ tài khoản giảng viên.</p></div><span className="rounded-full bg-gray-100 px-2.5 py-1 text-[9px] text-gray-600">Chưa bật</span></div>
+              <div className="mt-auto flex items-center justify-between border-t border-gray-200 pt-3 text-[9px]"><span className="text-gray-500">TOTP / Authenticator</span><button type="button" disabled className="font-semibold text-gray-400">Cấu hình · Chưa hỗ trợ</button></div>
+            </div>
+            <PasswordSettings email={profile.email} />
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'certificate' && (
+        <section className="mt-4 rounded-2xl border border-[#e1e1e1] bg-white p-4 shadow-sm sm:p-6">
+          <div className="border-b border-gray-200 pb-4"><h2 className="text-[15px] font-bold">Chữ ký số &amp; Chứng thư HSM</h2><p className="mt-1 text-[10px] text-gray-500">Trạng thái tích hợp chữ ký số cho bảng điểm và biên bản khảo thí.</p></div>
+          <div className="mt-4 flex flex-wrap items-start justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div><h3 className="flex items-center gap-2 text-[12px] font-semibold"><SettingsIcon name="key" />Chưa có chứng thư số được kết nối</h3><p className="mt-2 max-w-2xl text-[10px] leading-relaxed text-gray-700">Tích hợp Cloud HSM/TSA cần cấu hình backend, thông tin nhà cung cấp và chính sách cấp phát chứng thư. Không nhập khóa riêng hoặc bí mật HSM vào trình duyệt.</p></div>
+            <span className="rounded-full border border-amber-300 bg-white px-3 py-1.5 text-[9px] font-semibold text-amber-800">Chưa tích hợp</span>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3"><Field label="Nhà cung cấp chứng thư" value="Chưa cấu hình" disabled /><Field label="Ngày hết hạn" value="Chưa có dữ liệu" disabled /><Field label="Dấu thời gian TSA" value="Chưa kết nối" disabled /></div>
+        </section>
+      )}
+
+      {activeTab === 'audio' && (
+        <div className="mt-4 space-y-4">
+          <AudioSettings />
+          <section className="rounded-xl border border-gray-200 bg-white p-4">
+            <div className="border-b border-gray-200 pb-3"><h2 className="text-[12px] font-semibold">Tần suất nhận email thông báo bài thi</h2><p className="mt-1 text-[10px] text-gray-500">Các lựa chọn dưới đây chỉ áp dụng trong phiên trình duyệt này; chưa được đồng bộ lên tài khoản.</p></div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <ToggleSetting title="Khi có bài nộp mới" description="Thông báo khi sinh viên hoàn thành ghi âm câu hỏi." defaultChecked />
+              <ToggleSetting title="Khi có yêu cầu phúc khảo" description="Ưu tiên thông báo khi có yêu cầu cần giảng viên xem xét." defaultChecked />
+            </div>
+          </section>
+        </div>
+      )}
+
+      {notice && <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-[10px] text-emerald-800">{notice}</p>}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3">
+        <span className="flex items-center gap-2 text-[10px] text-gray-500"><SettingsIcon name="cloud" />{activeTab === 'security' ? 'Đổi mật khẩu được cập nhật trực tiếp qua xác thực Supabase.' : 'Tùy chọn chưa có tích hợp lưu trữ sẽ không được gửi lên máy chủ.'}</span>
+        <div className="flex gap-2"><button type="button" onClick={() => { selectTab('profile'); setNotice(''); }} className="h-9 rounded-full border border-gray-300 px-4 text-[10px] hover:bg-gray-50">Hủy bỏ</button><button type="button" onClick={() => setNotice('Không có thay đổi nào được lưu: API cập nhật cài đặt hồ sơ chưa được tích hợp.')} className="h-9 rounded-full bg-black px-4 text-[10px] font-semibold text-white hover:bg-gray-800">Lưu thay đổi hồ sơ</button></div>
+      </div>
+    </>
+  );
+}
+
+export default function TeacherSettings() {
+  return (
+    <TeacherPageShell currentPage="settings" breadcrumb="Tài khoản / Cài đặt cá nhân">
+      {(profile) => <TeacherSettingsContent profile={profile} />}
+    </TeacherPageShell>
+  );
+}
