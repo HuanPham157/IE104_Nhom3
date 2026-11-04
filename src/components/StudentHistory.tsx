@@ -6,6 +6,18 @@ import { useRouter } from 'next/navigation';
 import StudentSidebar from '@/components/StudentSidebar';
 import { supabase } from '@/lib/supabase-browser';
 
+interface QuestionBreakdown {
+  questionNumber: number;
+  title: string;
+  maxPoints: number;
+  aiPoints: number;
+  teacherBonus: number;
+  finalPoints: number;
+  keywordsMatched: string[];
+  studentTranscript: string;
+  teacherRemarks: string;
+}
+
 interface PastExam {
   id: string;
   code: string;
@@ -21,6 +33,7 @@ interface PastExam {
   feedback: string;
   retakesUsed: number;
   maxRetakes: number;
+  questions?: QuestionBreakdown[];
 }
 
 const mockExams: PastExam[] = [
@@ -39,6 +52,30 @@ const mockExams: PastExam[] = [
     feedback: 'Phát âm chuẩn xác thuật ngữ Partition, Pivot element. Nêu rõ độ phức tạp O(n log n) trung bình và trường hợp xấu O(n^2). Giọng nói to rõ, tự tin.',
     retakesUsed: 2,
     maxRetakes: 3,
+    questions: [
+      {
+        questionNumber: 1,
+        title: 'Cơ chế chia để trị & phân hoạch mảng theo phần tử chốt (Pivot)',
+        maxPoints: 5.0,
+        aiPoints: 4.5,
+        teacherBonus: 0.0,
+        finalPoints: 4.5,
+        keywordsMatched: ['Divide and Conquer', 'Pivot element', 'Phân hoạch mảng', 'O(n log n)'],
+        studentTranscript: 'Thưa thầy, thuật toán QuickSort hoạt động dựa trên nguyên lý chia để trị. Đầu tiên, ta chọn một phần tử làm chốt (pivot), sau đó phân hoạch mảng thành hai nửa: nửa bên trái gồm các phần tử nhỏ hơn chốt, và nửa bên phải gồm các phần tử lớn hơn chốt.',
+        teacherRemarks: 'Giải thích nguyên lý rất rõ ràng, tự tin, phát âm thuật ngữ tiếng Anh chính xác.',
+      },
+      {
+        questionNumber: 2,
+        title: 'Độ phức tạp thời gian trường hợp tốt nhất và trường hợp xấu nhất O(n^2)',
+        maxPoints: 5.0,
+        aiPoints: 4.0,
+        teacherBonus: 0.5,
+        finalPoints: 4.5,
+        keywordsMatched: ['Best case O(n log n)', 'Worst case O(n^2)', 'Cây đệ quy lệch', 'Randomized Pivot'],
+        studentTranscript: 'Trong trường hợp tốt nhất khi pivot luôn chia đôi mảng, độ phức tạp là O(n log n). Trường hợp xấu nhất O(n^2) xảy ra khi mảng đã sắp xếp và ta chọn pivot đầu hoặc cuối, dẫn đến cây đệ quy bị suy biến hoàn toàn.',
+        teacherRemarks: 'Ban đầu có chút ngập ngừng nhưng đã tự sửa lại kịch bản suy biến rất tốt. Giảng viên cộng 0.5 điểm phong thái phản xạ.',
+      },
+    ],
   },
   {
     id: 'exam-w03',
@@ -55,6 +92,30 @@ const mockExams: PastExam[] = [
     feedback: 'Nêu rõ phép xoay trái/phải trên cây AVL. Phát âm thuật ngữ tiếng Anh chính xác.',
     retakesUsed: 1,
     maxRetakes: 3,
+    questions: [
+      {
+        questionNumber: 1,
+        title: 'Cơ chế tìm kiếm nhị phân trên cây BST và hệ số cân bằng Balance Factor',
+        maxPoints: 5.0,
+        aiPoints: 4.3,
+        teacherBonus: 0.0,
+        finalPoints: 4.3,
+        keywordsMatched: ['Binary Search Tree', 'Balance Factor', 'Chiều cao cây h'],
+        studentTranscript: 'Hệ số cân bằng được tính bằng chiều cao của cây con bên trái trừ đi chiều cao cây con bên phải, giá trị nằm trong khoảng -1, 0, 1.',
+        teacherRemarks: 'Định nghĩa đúng và xúc tích.',
+      },
+      {
+        questionNumber: 2,
+        title: 'Bốn trường hợp xoay cây AVL (Left-Left, Right-Right, Left-Right, Right-Left)',
+        maxPoints: 5.0,
+        aiPoints: 4.2,
+        teacherBonus: 0.0,
+        finalPoints: 4.2,
+        keywordsMatched: ['Single Rotation', 'Double Rotation', 'Rebalancing'],
+        studentTranscript: 'Khi cây mất cân bằng do nhánh LL hoặc RR, ta chỉ cần một phép xoay đơn. Khi xảy ra LR hoặc RL, ta phải thực hiện phép xoay kép.',
+        teacherRemarks: 'Trình bày chuẩn xác các trường hợp xoay cây.',
+      },
+    ],
   },
   {
     id: 'exam-w02',
@@ -111,6 +172,7 @@ export default function StudentHistory() {
   const [appealSubmitted, setAppealSubmitted] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [expandedExamId, setExpandedExamId] = useState<string | null>('exam-w04');
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -353,10 +415,12 @@ export default function StudentHistory() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => alert(`Xem chi tiết Rubric bài thi: ${exam.title}`)}
-                          className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-200"
+                          onClick={() => setExpandedExamId(expandedExamId === exam.id ? null : exam.id)}
+                          className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-200 flex items-center gap-1.5 transition"
                         >
-                          Xem Rubric &amp; Transcript
+                          <span>📑</span>
+                          <span>{expandedExamId === exam.id ? 'Thu gọn chi tiết câu hỏi' : 'Xem điểm từng câu & Barem'}</span>
+                          <span className="text-[10px] text-gray-500">{expandedExamId === exam.id ? '▲' : '▼'}</span>
                         </button>
                         <button
                           type="button"
@@ -378,6 +442,78 @@ export default function StudentHistory() {
                         Yêu cầu phúc khảo
                       </button>
                     </div>
+
+                    {/* CHI TIẾT ĐIỂM TỪNG CÂU HỎI & PHẢN HỒI GIẢNG VIÊN (ACCORDION) */}
+                    {expandedExamId === exam.id && exam.questions && exam.questions.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-dashed border-gray-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <span>📊</span> Phân tích điểm chi tiết từng câu hỏi ({exam.questions.length} câu)
+                          </span>
+                          <span className="text-[10px] text-gray-400">Khảo thí âm học &amp; Barem LLM</span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {exam.questions.map((q) => (
+                            <div
+                              key={q.questionNumber}
+                              className="rounded-xl border border-gray-200 bg-white p-3.5 space-y-2.5 shadow-2xs"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-md bg-black px-2 py-0.5 font-mono text-[10px] font-bold text-white">
+                                    Câu {q.questionNumber}
+                                  </span>
+                                  <h4 className="font-bold text-xs text-gray-900">{q.title}</h4>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-lg bg-gray-50 border border-gray-200 px-2 py-0.5 text-xs font-mono font-black text-gray-900">
+                                    {q.finalPoints.toFixed(1)} / {q.maxPoints.toFixed(1)} đ
+                                  </span>
+                                  <span className="text-[10px] text-gray-500">
+                                    (AI: {q.aiPoints} + GV: +{q.teacherBonus})
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Từ khóa đã khớp */}
+                              <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                                <span className="text-gray-400 font-semibold">Từ khóa đạt:</span>
+                                {q.keywordsMatched.map((kw, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 text-emerald-800 font-medium"
+                                  >
+                                    ✓ {kw}
+                                  </span>
+                                ))}
+                              </div>
+
+                              {/* Spoken Transcript */}
+                              <div className="rounded-lg bg-gray-50 p-2.5 border border-gray-100 text-[11px] text-gray-700 space-y-1">
+                                <span className="font-bold text-gray-500 text-[10px] block">
+                                  Bản phiên âm câu trả lời của bạn:
+                                </span>
+                                <p className="italic text-gray-600 leading-relaxed">
+                                  &quot;{q.studentTranscript}&quot;
+                                </p>
+                              </div>
+
+                              {/* Teacher Remarks */}
+                              <div className="rounded-lg bg-indigo-50/70 p-2.5 border border-indigo-100 text-[11px] text-indigo-950 space-y-0.5">
+                                <span className="font-bold text-indigo-800 text-[10px] flex items-center gap-1">
+                                  <span>💬</span> Lời phê của giảng viên:
+                                </span>
+                                <p className="text-indigo-900 leading-relaxed">
+                                  {q.teacherRemarks}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

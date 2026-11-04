@@ -14,6 +14,7 @@ export default function ExamRoom({ examId = 'CS102-MID-2024-03' }: { examId?: st
   const [pauseCountLeft, setPauseCountLeft] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
   const [showFocusModal, setShowFocusModal] = useState(true);
+  const [showSubmittedModal, setShowSubmittedModal] = useState(false);
 
   // Hiệu ứng đếm ngược thời gian
   useEffect(() => {
@@ -47,7 +48,8 @@ export default function ExamRoom({ examId = 'CS102-MID-2024-03' }: { examId?: st
       setCurrentQuestion((prev) => prev + 1);
       setQuestionTimeLeft(120);
     } else {
-      router.push(`/teacher/evaluations/${examId}`);
+      setIsPaused(true);
+      setShowSubmittedModal(true);
     }
   };
 
@@ -493,6 +495,55 @@ export default function ExamRoom({ examId = 'CS102-MID-2024-03' }: { examId?: st
           </kbd>
         </div>
       </footer>
+
+      {/* MODAL NỘP BÀI THI THÀNH CÔNG */}
+      {showSubmittedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 text-2xl border border-emerald-200">
+              ✓
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-gray-900">Nộp bài thi vấn đáp thành công!</h3>
+              <p className="mt-1 text-xs text-gray-500 leading-relaxed">
+                Tất cả 3 câu trả lời ghi âm của bạn đã được tải lên bảo mật. Hệ thống OralEval AI đang trích xuất văn bản (Speech-to-Text) và phân tích các tiêu chí Barem để gửi giảng viên thẩm định.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-left space-y-1.5 text-xs text-gray-700">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Mã ca thi:</span>
+                <span className="font-mono font-bold text-gray-900">{examId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Số câu đã hoàn thành:</span>
+                <span className="font-bold text-emerald-700">3 / 3 câu hỏi</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Độ tin cậy âm học:</span>
+                <span className="font-bold text-indigo-700">99.4% (Không vi phạm)</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => router.push('/student/classes')}
+                className="flex-1 rounded-xl border border-gray-300 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition"
+              >
+                Quay lại Lớp học
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/student/history')}
+                className="flex-1 rounded-xl bg-black py-2.5 text-xs font-bold text-white hover:bg-gray-800 transition shadow-sm"
+              >
+                Xem Lịch sử &amp; Điểm số
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

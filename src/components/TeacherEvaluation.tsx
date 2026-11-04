@@ -14,6 +14,56 @@ export default function TeacherEvaluation({ examId = 'CS102-MID-2024-03' }: { ex
   const [syncCanvas, setSyncCanvas] = useState(true);
   const [isPublished, setIsPublished] = useState(false);
 
+  const [aiScore, setAiScore] = useState<number>(8.5);
+  const [conceptScore, setConceptScore] = useState<number>(90);
+  const [clarityScore, setClarityScore] = useState<number>(80);
+
+  // Chức năng Chỉnh sửa & Tải lên Transcript
+  const defaultTranscript = `Thưa thầy, thuật toán QuickSort hoạt động dựa trên nguyên lý chia để trị (Divide and Conquer). Đầu tiên, ta chọn một phần tử làm chốt (pivot), sau đó phân hoạch mảng thành hai nửa: nửa bên trái gồm các phần tử nhỏ hơn chốt, và nửa bên phải gồm các phần tử lớn hơn chốt.
+
+Sau đó, ta tiến hành gọi đệ quy cho hai mảng con đó cho đến khi kích thước mảng con bằng 1. Về độ phức tạp: Trong trường hợp tốt nhất, khi điểm chốt luôn chia mảng thành hai phần cân bằng nhau, ta có độ phức tạp thời gian là O(n log n).`;
+
+  const [isEditingTranscript, setIsEditingTranscript] = useState(false);
+  const [transcriptText, setTranscriptText] = useState(defaultTranscript);
+  const [isManualTranscript, setIsManualTranscript] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [isReevaluating, setIsReevaluating] = useState(false);
+  const [reevalSuccess, setReevalSuccess] = useState(false);
+
+  // Kích hoạt AI chấm lại theo transcript mới
+  const handleReevaluate = () => {
+    setIsReevaluating(true);
+    setReevalSuccess(false);
+    setTimeout(() => {
+      setIsReevaluating(false);
+      setAiScore(9.2);
+      setConceptScore(95);
+      setClarityScore(88);
+      setTeacherScore(9.5);
+      setReevalSuccess(true);
+      setTimeout(() => setReevalSuccess(false), 4000);
+    }, 1500);
+  };
+
+  // Tải file transcript từ máy (.txt, .srt, .vtt)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedFileName(file.name);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        if (text) {
+          setTranscriptText(text);
+          setIsManualTranscript(true);
+          setShowUploadModal(false);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
   return (
     <div
       suppressHydrationWarning
@@ -251,79 +301,200 @@ export default function TeacherEvaluation({ examId = 'CS102-MID-2024-03' }: { ex
                 </div>
               </section>
 
-              {/* CARD 2: BẢN PHIÊN ÂM GIỌNG NÓI (SPEECH-TO-TEXT) */}
+              {/* CARD 2: BẢN PHIÊN ÂM GIỌNG NÓI (SPEECH-TO-TEXT & TRANSCRIPT EDIT/UPLOAD) */}
               <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                  <h2 className="font-bold text-xs text-gray-900 flex items-center gap-2">
-                    <span>💬</span> Bản phiên âm giọng nói (Speech-to-Text)
-                  </h2>
+                <div className="flex flex-wrap items-center justify-between pb-3 border-b border-gray-100 gap-2">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                      <span>💬</span> Bản phiên âm giọng nói (Speech-to-Text)
+                    </h2>
+                    {isManualTranscript && (
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[9px]">
+                        Đã chỉnh sửa
+                      </span>
+                    )}
+                  </div>
 
-                  {/* Chú giải highlight */}
-                  <div className="flex items-center gap-2 text-[9px] font-semibold">
-                    <span className="text-gray-400">Chú giải:</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Từ vựng chuẩn
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">
-                      Hiểu sai / Áp dụng
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTranscript(!isEditingTranscript)}
+                      className="px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[10px] font-bold text-gray-700 flex items-center gap-1 transition shadow-2xs"
+                    >
+                      <span>✏️</span>
+                      <span>{isEditingTranscript ? 'Xem bản gốc' : 'Chỉnh sửa'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowUploadModal(true)}
+                      className="px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[10px] font-bold text-indigo-700 flex items-center gap-1 transition shadow-2xs"
+                    >
+                      <span>📤</span>
+                      <span>Tải transcript lên</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="space-y-3.5 text-[11px] leading-relaxed">
-                  {/* Block Giảng viên / Đề bài */}
-                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-bold text-gray-700">Giảng viên / Đề bài:</span>
-                      <span className="text-gray-400 font-mono">00:00 - 00:08</span>
-                    </div>
-                    <p className="text-gray-600 italic text-[10px]">
-                      &quot;Em hãy giải thích cơ chế hoạt động của thuật toán sắp xếp nhanh QuickSort, độ phức tạp thuật toán trong trường hợp tốt nhất và xấu nhất?&quot;
-                    </p>
-                  </div>
-
-                  {/* Block Sinh viên trả lời có Highlight */}
-                  <div className="p-3.5 bg-white rounded-xl border border-gray-200 space-y-2.5">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-bold text-indigo-700 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
-                        Sinh viên: Trần Minh Đức
+                {/* Chế độ Chỉnh sửa Transcript thủ công */}
+                {isEditingTranscript ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-[10px] text-gray-500">
+                      <span className="font-semibold text-gray-700">
+                        Chỉnh sửa lại nội dung văn bản khi nhận dạng giọng nói bị nhiễu:
                       </span>
-                      <span className="text-gray-400 font-mono">00:09 - 01:45</span>
+                      <span className="font-mono">
+                        {transcriptText.length} ký tự • {transcriptText.trim().split(/\s+/).length} từ
+                      </span>
                     </div>
 
-                    <p className="text-gray-800">
-                      &quot;Thưa thầy, thuật toán <strong className="text-indigo-700">QuickSort</strong> hoạt động dựa trên nguyên lý{' '}
-                      <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300">
-                        chia để trị (Divide and Conquer)
-                      </span>. Đầu tiên, ta chọn một phần tử làm{' '}
-                      <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300">
-                        chốt (pivot)
-                      </span>, sau đó phân hoạch mảng thành hai nửa: nửa bên trái gồm các phần tử nhỏ hơn chốt, và nửa bên phải gồm các phần tử lớn hơn chốt.&quot;
-                    </p>
+                    <textarea
+                      rows={8}
+                      value={transcriptText}
+                      onChange={(e) => setTranscriptText(e.target.value)}
+                      className="w-full p-3.5 rounded-xl border border-indigo-300 bg-white text-[11px] leading-relaxed outline-none focus:ring-2 focus:ring-indigo-400 font-sans text-gray-800"
+                      placeholder="Nhập hoặc dán nội dung transcript đã hiệu chỉnh..."
+                    />
 
-                    <p className="text-gray-800">
-                      &quot;Sau đó, ta tiến hành gọi{' '}
-                      <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300">
-                        đệ quy
-                      </span>{' '}
-                      cho hai mảng con đó cho đến khi kích thước mảng con bằng 1. Về độ phức tạp: Trong trường hợp tốt nhất, khi điểm chốt luôn chia mảng thành hai phần cân bằng nhau, ta có độ phức tạp thời gian là{' '}
-                      <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300 font-mono">
-                        O(n log n)
-                      </span>.&quot;
-                    </p>
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTranscriptText(defaultTranscript);
+                          setIsManualTranscript(false);
+                          setIsEditingTranscript(false);
+                        }}
+                        className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-[10px] font-semibold"
+                      >
+                        Khôi phục gốc AI
+                      </button>
 
-                    {/* Hộp cảnh báo hiểu sai */}
-                    <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-[10px] text-red-800 space-y-0.5">
-                      <div className="flex items-center gap-1 font-bold">
-                        <span>⚠️</span> Điểm phát hiện hiểu sai khái niệm (01:12):
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingTranscript(false)}
+                          className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-[10px] font-bold text-gray-700"
+                        >
+                          Đóng
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsManualTranscript(true);
+                            setIsEditingTranscript(false);
+                          }}
+                          className="px-4 py-1.5 rounded-lg bg-black text-white hover:bg-gray-800 text-[10px] font-bold shadow-xs"
+                        >
+                          Lưu transcript đã sửa
+                        </button>
                       </div>
-                      <p className="pl-4 text-red-700">
-                        Thí sinh phát biểu nhầm rằng trường hợp xấu nhất xảy ra khi mảng hoàn toàn ngẫu nhiên.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3.5 text-[11px] leading-relaxed">
+                    {/* Block Giảng viên / Đề bài */}
+                    <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="font-bold text-gray-700">Giảng viên / Đề bài:</span>
+                        <span className="text-gray-400 font-mono">00:00 - 00:08</span>
+                      </div>
+                      <p className="text-gray-600 italic text-[10px]">
+                        &quot;Em hãy giải thích cơ chế hoạt động của thuật toán sắp xếp nhanh QuickSort, độ phức tạp thuật toán trong trường hợp tốt nhất và xấu nhất?&quot;
                       </p>
                     </div>
+
+                    {/* Block Sinh viên trả lời có Highlight */}
+                    <div className="p-3.5 bg-white rounded-xl border border-gray-200 space-y-2.5">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="font-bold text-indigo-700 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                          Sinh viên: Trần Minh Đức
+                        </span>
+                        <span className="text-gray-400 font-mono">00:09 - 01:45</span>
+                      </div>
+
+                      {isManualTranscript ? (
+                        <div className="p-3 rounded-lg bg-indigo-50/50 border border-indigo-100 text-gray-800 leading-relaxed whitespace-pre-line">
+                          {transcriptText}
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-gray-800">
+                            &quot;Thưa thầy, thuật toán <strong className="text-indigo-700">QuickSort</strong> hoạt động dựa trên nguyên lý{' '}
+                            <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300">
+                              chia để trị (Divide and Conquer)
+                            </span>. Đầu tiên, ta chọn một phần tử làm{' '}
+                            <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300">
+                              chốt (pivot)
+                            </span>, sau đó phân hoạch mảng thành hai nửa: nửa bên trái gồm các phần tử nhỏ hơn chốt, và nửa bên phải gồm các phần tử lớn hơn chốt.&quot;
+                          </p>
+
+                          <p className="text-gray-800">
+                            &quot;Sau đó, ta tiến hành gọi{' '}
+                            <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300">
+                              đệ quy
+                            </span>{' '}
+                            cho hai mảng con đó cho đến khi kích thước mảng con bằng 1. Về độ phức tạp: Trong trường hợp tốt nhất, khi điểm chốt luôn chia mảng thành hai phần cân bằng nhau, ta có độ phức tạp thời gian là{' '}
+                            <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300 font-mono">
+                              O(n log n)
+                            </span>.&quot;
+                          </p>
+
+                          {/* Hộp cảnh báo hiểu sai */}
+                          <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-[10px] text-red-800 space-y-0.5">
+                            <div className="flex items-center gap-1 font-bold">
+                              <span>⚠️</span> Điểm phát hiện hiểu sai khái niệm (01:12):
+                            </div>
+                            <p className="pl-4 text-red-700">
+                              Thí sinh phát biểu nhầm rằng trường hợp xấu nhất xảy ra khi mảng hoàn toàn ngẫu nhiên.
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Banner & Nút AI Chấm lại khi Transcript thay đổi */}
+                {isManualTranscript && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">⚡</span>
+                      <div>
+                        <span className="block font-bold text-amber-900 text-[10px]">
+                          Transcript vừa được cập nhật thủ công
+                        </span>
+                        <span className="text-[9px] text-amber-700">
+                          Bấm để AI tính toán lại barem chấm điểm theo bản ghi chuẩn mới
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isReevaluating}
+                      onClick={handleReevaluate}
+                      className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] flex items-center gap-1.5 shadow-xs transition disabled:opacity-50"
+                    >
+                      {isReevaluating ? (
+                        <>
+                          <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Đang chấm lại...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🔄</span>
+                          <span>AI Chấm lại theo transcript mới</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {reevalSuccess && (
+                  <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[10px] text-emerald-800 font-bold flex items-center gap-2">
+                    <span>✓</span> AI đã hoàn tất chấm lại: Điểm AI đề xuất nâng lên 9.2/10.0!
+                  </div>
+                )}
               </section>
             </div>
 
@@ -342,7 +513,7 @@ export default function TeacherEvaluation({ examId = 'CS102-MID-2024-03' }: { ex
                   </div>
 
                   <div className="text-right">
-                    <span className="text-3xl font-black text-gray-900 font-mono">8.5</span>
+                    <span className="text-3xl font-black text-gray-900 font-mono">{aiScore.toFixed(1)}</span>
                     <span className="text-xs text-gray-400 font-mono"> / 10.0</span>
                   </div>
                 </div>
@@ -352,20 +523,20 @@ export default function TeacherEvaluation({ examId = 'CS102-MID-2024-03' }: { ex
                   <div className="bg-[#f9fafb] border border-gray-200 rounded-xl p-3 space-y-1.5">
                     <div className="flex justify-between font-bold text-[10px]">
                       <span>Đúng khái niệm</span>
-                      <span className="text-emerald-700 font-mono">90%</span>
+                      <span className="text-emerald-700 font-mono">{conceptScore}%</span>
                     </div>
                     <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-emerald-600 h-full rounded-full" style={{ width: '90%' }} />
+                      <div className="bg-emerald-600 h-full rounded-full transition-all duration-500" style={{ width: `${conceptScore}%` }} />
                     </div>
                   </div>
 
                   <div className="bg-[#f9fafb] border border-gray-200 rounded-xl p-3 space-y-1.5">
                     <div className="flex justify-between font-bold text-[10px]">
                       <span>Tính mạch lạc</span>
-                      <span className="text-indigo-700 font-mono">80%</span>
+                      <span className="text-indigo-700 font-mono">{clarityScore}%</span>
                     </div>
                     <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-indigo-600 h-full rounded-full" style={{ width: '80%' }} />
+                      <div className="bg-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${clarityScore}%` }} />
                     </div>
                   </div>
 
@@ -466,7 +637,7 @@ export default function TeacherEvaluation({ examId = 'CS102-MID-2024-03' }: { ex
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
                     <span className="block text-[10px] text-gray-500 mb-1">Điểm AI gợi ý</span>
-                    <span className="text-xl font-bold font-mono text-gray-900">8.5</span>
+                    <span className="text-xl font-bold font-mono text-gray-900">{aiScore.toFixed(1)}</span>
                     <span className="text-xs text-gray-400 font-mono"> / 10.0</span>
                   </div>
 
@@ -587,6 +758,66 @@ export default function TeacherEvaluation({ examId = 'CS102-MID-2024-03' }: { ex
           </footer>
         </main>
       </div>
+
+      {/* ========================================================= */}
+      {/* MODAL TẢI LÊN FILE TRANSCRIPT (.TXT / .SRT / .VTT)         */}
+      {/* ========================================================= */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center text-sm font-bold">
+                  📤
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Tải lên file Transcript</h3>
+                  <span className="text-[10px] text-gray-400">Hỗ trợ định dạng .txt, .srt, .vtt</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUploadModal(false)}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Khi bản nhận diện âm thanh tự động có sai sót do tạp âm hoặc phát âm không chuẩn, giảng viên có thể tải lên bản transcript đã được hiệu chỉnh chính xác để AI đánh giá lại.
+              </p>
+
+              <label className="border-2 border-dashed border-gray-300 hover:border-indigo-400 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer bg-gray-50/50 hover:bg-indigo-50/20 transition group">
+                <div className="w-10 h-10 rounded-full bg-white shadow-xs flex items-center justify-center text-indigo-600 text-lg group-hover:scale-110 transition">
+                  📄
+                </div>
+                <span className="mt-2 text-xs font-bold text-gray-900">
+                  {uploadedFileName ? uploadedFileName : 'Chọn tệp từ máy tính hoặc kéo thả vào đây'}
+                </span>
+                <span className="text-[10px] text-gray-400 mt-0.5">Tối đa dung lượng 10MB</span>
+                <input
+                  type="file"
+                  accept=".txt,.srt,.vtt"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -337,7 +337,14 @@ export default function StudentClasses() {
                       </span>
                     </div>
 
-                    <h2 className="mt-3 text-lg font-bold text-gray-900">{item.name}</h2>
+                    <Link
+                      href={`/student/classes/${item.id}`}
+                      className="group-hover:text-indigo-600 transition"
+                    >
+                      <h2 className="mt-3 text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition">
+                        {item.name}
+                      </h2>
+                    </Link>
                     <p className="mt-1 text-xs text-gray-600">
                       Giảng viên: <span className="font-medium text-gray-900">{item.teacher}</span> • {item.teacherTitle}
                     </p>
@@ -377,13 +384,21 @@ export default function StudentClasses() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
-                    <Link
-                      href="/student/history"
-                      className="text-xs font-semibold text-gray-600 hover:text-black"
-                    >
-                      Xem điểm &amp; Lịch sử
-                    </Link>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-4">
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href={`/student/classes/${item.id}`}
+                        className="text-xs font-bold text-indigo-700 hover:text-indigo-900 transition flex items-center gap-1"
+                      >
+                        Chi tiết lớp &amp; Bài tập →
+                      </Link>
+                      <Link
+                        href="/student/history"
+                        className="text-xs font-semibold text-gray-500 hover:text-black transition"
+                      >
+                        Xem điểm
+                      </Link>
+                    </div>
                     <Link
                       href="/student/exam/CS102-MID-2024-03"
                       className="inline-flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white transition hover:bg-gray-800"
