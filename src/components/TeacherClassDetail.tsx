@@ -90,8 +90,15 @@ const mockStudents: StudentRosterItem[] = [
   },
 ];
 
-export default function TeacherClassDetail({ classCode = 'AIO-8892' }: { classCode?: string }) {
+export default function TeacherClassDetail({
+  classCode,
+  classId,
+}: {
+  classCode?: string;
+  classId?: string;
+} = {}) {
   const router = useRouter();
+  const effectiveCode = classCode || classId || 'AIO-8892';
   const [students] = useState<StudentRosterItem[]>(mockStudents);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'roster' | 'assignments' | 'spectrogram'>('roster');
@@ -108,7 +115,7 @@ export default function TeacherClassDetail({ classCode = 'AIO-8892' }: { classCo
   }
 
   function handleCopyCode() {
-    navigator.clipboard.writeText(classCode);
+    navigator.clipboard.writeText(effectiveCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   }
@@ -143,7 +150,7 @@ export default function TeacherClassDetail({ classCode = 'AIO-8892' }: { classCo
             </Link>
             <span>/</span>
             <span className="font-semibold text-black">
-              KTPM-K20: Kiến trúc Phần mềm ({classCode})
+              KTPM-K20: Kiến trúc Phần mềm ({effectiveCode})
             </span>
           </div>
 
@@ -165,7 +172,7 @@ export default function TeacherClassDetail({ classCode = 'AIO-8892' }: { classCo
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded bg-black px-2 py-0.5 font-mono text-xs font-bold text-white">
-                    {classCode}
+                    {effectiveCode}
                   </span>
                   <span className="rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-600">
                     IT4409 • Khoa Công nghệ Phần mềm
@@ -190,7 +197,7 @@ export default function TeacherClassDetail({ classCode = 'AIO-8892' }: { classCo
                     MÃ LỚP THAM GIA (CLASS CODE)
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-lg font-black text-gray-900">{classCode}</span>
+                    <span className="font-mono text-lg font-black text-gray-900">{effectiveCode}</span>
                     <button
                       onClick={handleCopyCode}
                       className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-indigo-900 shadow-xs border border-indigo-200 hover:bg-indigo-50 transition"
@@ -465,11 +472,11 @@ export default function TeacherClassDetail({ classCode = 'AIO-8892' }: { classCo
           <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-2xl">
             <h3 className="text-base font-bold text-gray-900">Mã QR Tham gia Lớp học</h3>
             <p className="mt-1 text-xs text-gray-500">
-              Sinh viên quét mã này để tham gia trực tiếp lớp {classCode}
+              Sinh viên quét mã này để tham gia trực tiếp lớp {effectiveCode}
             </p>
             <div className="my-5 flex justify-center">
               <div className="flex h-44 w-44 items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-2 font-mono text-xs">
-                [ QR Code: aioralcheck.edu.vn/join/{classCode} ]
+                [ QR Code: aioralcheck.edu.vn/join/{effectiveCode} ]
               </div>
             </div>
             <button
