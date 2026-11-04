@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-type StudentPage = 'overview' | 'tasks' | 'classes' | 'recorder';
+type StudentPage = 'overview' | 'tasks' | 'classes' | 'history' | 'profile' | 'recorder';
 type SidebarAction = 'classes' | 'audio' | 'history' | 'settings';
 
 const iconPaths = {
@@ -27,9 +27,9 @@ interface StudentSidebarProps {
   fullName: string;
   institutionalId: string;
   signingOut: boolean;
-  interactiveUnavailable: boolean;
+  interactiveUnavailable?: boolean;
   onSignOut: () => void;
-  onUnavailable: (action: SidebarAction) => void;
+  onUnavailable?: (action: SidebarAction) => void;
 }
 
 export default function StudentSidebar({
@@ -37,29 +37,11 @@ export default function StudentSidebar({
   fullName,
   institutionalId,
   signingOut,
-  interactiveUnavailable,
   onSignOut,
-  onUnavailable,
 }: StudentSidebarProps) {
   const initials = fullName.split(/\s+/).slice(-2).map((part) => part[0]?.toLocaleUpperCase() ?? '').join('');
-  const itemClass = 'flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[12px] text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:hover:bg-transparent';
+  const itemClass = 'flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[12px] text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:hover:bg-transparent transition';
   const activeClass = 'border-l-2 border-black bg-[#ededed] font-semibold text-[#202124]';
-
-  function unavailableItem(action: SidebarAction, icon: keyof typeof iconPaths, label: string) {
-    return (
-      <button
-        key={action}
-        type="button"
-        disabled={!interactiveUnavailable}
-        onClick={() => onUnavailable(action)}
-        className={itemClass}
-        title={interactiveUnavailable ? undefined : `${label} chưa được triển khai`}
-      >
-        <SidebarIcon name={icon} />
-        {label}
-      </button>
-    );
-  }
 
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-[255px] flex-col border-r border-[#e6e6e6] bg-[#fbfbfb] md:flex">
@@ -75,52 +57,53 @@ export default function StudentSidebar({
 
       <nav aria-label="Điều hướng sinh viên" className="flex flex-1 flex-col px-4 py-4">
         <div className="space-y-1">
-          {currentPage === 'overview' ? (
-            <span aria-current="page" className={`${itemClass} ${activeClass}`}>
-              <SidebarIcon name="overview" />
-              Tổng quan
-            </span>
-          ) : (
-            <Link href="/student" className={itemClass}>
-              <SidebarIcon name="overview" />
-              Tổng quan
-            </Link>
-          )}
-          {currentPage === 'classes' ? (
-            <span aria-current="page" className={`${itemClass} ${activeClass}`}>
-              <SidebarIcon name="classes" />
-              Lớp học của tôi
-            </span>
-          ) : (
-            <Link href="/student/classes" className={itemClass}>
-              <SidebarIcon name="classes" />
-              Lớp học của tôi
-            </Link>
-          )}
-          {currentPage === 'tasks' ? (
-            <span aria-current="page" className={`${itemClass} ${activeClass}`}>
-              <SidebarIcon name="tasks" />
-              Bài tập oral
-            </span>
-          ) : (
-            <Link href="/tasks" className={itemClass}>
-              <SidebarIcon name="tasks" />
-              Bài tập oral
-            </Link>
-          )}
-          {currentPage === 'recorder' ? (
-            <span aria-current="page" className={`${itemClass} ${activeClass}`}>
-              <SidebarIcon name="mic" />
-              Phòng thu âm AI
-            </span>
-          ) : (
-            <Link href="/student/recorder" className={itemClass}>
-              <SidebarIcon name="mic" />
-              Phòng thu âm AI
-            </Link>
-          )}
-          {unavailableItem('history', 'history', 'Lịch sử & Bảng xếp hạng')}
-          {unavailableItem('settings', 'settings', 'Cài đặt')}
+          <Link
+            href="/student"
+            className={`${itemClass} ${currentPage === 'overview' ? activeClass : ''}`}
+          >
+            <SidebarIcon name="overview" />
+            Tổng quan
+          </Link>
+
+          <Link
+            href="/student/classes"
+            className={`${itemClass} ${currentPage === 'classes' ? activeClass : ''}`}
+          >
+            <SidebarIcon name="classes" />
+            Lớp học của tôi
+          </Link>
+
+          <Link
+            href="/tasks"
+            className={`${itemClass} ${currentPage === 'tasks' ? activeClass : ''}`}
+          >
+            <SidebarIcon name="tasks" />
+            Bài tập oral
+          </Link>
+
+          <Link
+            href="/student/exam/CS102-MID-2024-03"
+            className={itemClass}
+          >
+            <SidebarIcon name="mic" />
+            Phòng thi vấn đáp AI
+          </Link>
+
+          <Link
+            href="/student/history"
+            className={`${itemClass} ${currentPage === 'history' ? activeClass : ''}`}
+          >
+            <SidebarIcon name="history" />
+            Lịch sử &amp; Bảng xếp hạng
+          </Link>
+
+          <Link
+            href="/student/profile"
+            className={`${itemClass} ${currentPage === 'profile' ? activeClass : ''}`}
+          >
+            <SidebarIcon name="settings" />
+            Cài đặt tài khoản
+          </Link>
         </div>
 
         <div className="mt-auto -mx-4 border-t border-[#e6e6e6] px-4 pt-4">

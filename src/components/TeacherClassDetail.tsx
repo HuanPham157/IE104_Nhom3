@@ -1,258 +1,486 @@
 'use client';
 
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import TeacherPageShell from '@/components/TeacherPageShell';
+import { useRouter } from 'next/navigation';
+import TeacherSidebar from '@/components/TeacherSidebar';
+import { supabase } from '@/lib/supabase-browser';
 
-interface Student {
+interface StudentRosterItem {
   id: string;
   name: string;
-  email: string;
-  initials: string;
-  voiceprint: string;
-  score: number;
-  fluency: number;
-  wordsPerMinute: number;
-  note: string;
-  status: 'Đã thẩm định' | 'Chờ GV duyệt' | 'Cần hỗ trợ';
-  risk: boolean;
+  studentId: string;
+  voiceprintStatus: 'verified' | 'unregistered' | 'flagged';
+  voiceprintConfidence: number;
+  recentScore: number;
+  status: 'passed' | 'pending' | 'flagged';
+  submissionDate: string;
+  flagReason?: string;
+  avatar: string;
 }
 
-type StudentFilter = 'all' | 'excellent' | 'pending' | 'voiceprint' | 'risk';
-
-const demoStudents: Student[] = [
-  { id: '2021601889', name: 'Trần Quốc Bảo', email: 'bao.tq@sv.edu.vn', initials: 'QB', voiceprint: '98%', score: 8.8, fluency: 89, wordsPerMinute: 128, note: 'Luận điểm mạch lạc, âm cuối rõ', status: 'Đã thẩm định', risk: false },
-  { id: '2021602102', name: 'Lê Minh Cường', email: 'cuong.lm@sv.edu.vn', initials: 'LC', voiceprint: '96%', score: 7.2, fluency: 74, wordsPerMinute: 112, note: 'Cần chú ý ngữ điệu và ngắt nghỉ', status: 'Chờ GV duyệt', risk: false },
-  { id: '2021602456', name: 'Phạm Thùy Dung', email: 'dung.pt@sv.edu.vn', initials: 'PD', voiceprint: '100%', score: 9.6, fluency: 96, wordsPerMinute: 142, note: 'Phát âm thuật ngữ chuyên ngành chính xác', status: 'Đã thẩm định', risk: false },
-  { id: '2021603011', name: 'Nguyễn Đức Hải', email: 'hai.nd@sv.edu.vn', initials: 'NH', voiceprint: '94%', score: 6.5, fluency: 61, wordsPerMinute: 92, note: 'Nhiều filler words, thiếu từ khóa chuyên môn', status: 'Cần hỗ trợ', risk: true },
-  { id: '2021603120', name: 'Vũ Thị Lan', email: 'lan.vt@sv.edu.vn', initials: 'VL', voiceprint: '99%', score: 8.5, fluency: 87, wordsPerMinute: 130, note: 'Giải thích mạch lạc, giọng đọc rõ ràng', status: 'Đã thẩm định', risk: false },
-  { id: '2021603308', name: 'Đỗ Hoàng Nam', email: 'nam.dh@sv.edu.vn', initials: 'HN', voiceprint: 'Chưa xác thực', score: 7.8, fluency: 79, wordsPerMinute: 118, note: 'Cần hoàn tất xác thực mẫu giọng nói', status: 'Chờ GV duyệt', risk: false },
+const mockStudents: StudentRosterItem[] = [
+  {
+    id: 'sv-01',
+    name: 'Nguyễn Đăng Khoa',
+    studentId: '21520012',
+    voiceprintStatus: 'verified',
+    voiceprintConfidence: 99.4,
+    recentScore: 9.7,
+    status: 'passed',
+    submissionDate: '24/10 21:15',
+    avatar: '👨‍🎓',
+  },
+  {
+    id: 'sv-02',
+    name: 'Lê Thị Thu Thảo',
+    studentId: '21520045',
+    voiceprintStatus: 'verified',
+    voiceprintConfidence: 98.8,
+    recentScore: 9.5,
+    status: 'passed',
+    submissionDate: '24/10 21:40',
+    avatar: '👩‍🎓',
+  },
+  {
+    id: 'sv-03',
+    name: 'Trần Minh Đức',
+    studentId: '21520188',
+    voiceprintStatus: 'verified',
+    voiceprintConfidence: 98.1,
+    recentScore: 8.8,
+    status: 'passed',
+    submissionDate: '24/10 22:05',
+    avatar: '🧑‍💻',
+  },
+  {
+    id: 'sv-04',
+    name: 'Vũ Đình Trọng',
+    studentId: '21520330',
+    voiceprintStatus: 'flagged',
+    voiceprintConfidence: 61.2,
+    recentScore: 6.5,
+    status: 'flagged',
+    submissionDate: '24/10 23:10',
+    flagReason: 'Phát hiện tạp âm nền & lệch phổ âm tần số cao',
+    avatar: '👨‍🎓',
+  },
+  {
+    id: 'sv-05',
+    name: 'Trần Mai Linh',
+    studentId: '21520412',
+    voiceprintStatus: 'verified',
+    voiceprintConfidence: 97.5,
+    recentScore: 8.5,
+    status: 'passed',
+    submissionDate: '24/10 22:30',
+    avatar: '👩‍🎓',
+  },
+  {
+    id: 'sv-06',
+    name: 'Phạm Quốc Bảo',
+    studentId: '21520551',
+    voiceprintStatus: 'unregistered',
+    voiceprintConfidence: 0,
+    recentScore: 0,
+    status: 'pending',
+    submissionDate: 'Chưa nộp bài',
+    flagReason: 'Chưa đăng ký Voiceprint sinh trắc',
+    avatar: '👨‍🎓',
+  },
 ];
 
-const filterOptions: { id: StudentFilter; label: string }[] = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'excellent', label: 'Điểm xuất sắc ≥ 9.0' },
-  { id: 'pending', label: 'Chờ thẩm định giảng viên' },
-  { id: 'voiceprint', label: 'Voiceprint hoàn tất' },
-  { id: 'risk', label: 'Cảnh báo rủi ro' },
-];
+export default function TeacherClassDetail({ classCode = 'AIO-8892' }: { classCode?: string }) {
+  const router = useRouter();
+  const [students] = useState<StudentRosterItem[]>(mockStudents);
+  const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'roster' | 'assignments' | 'spectrogram'>('roster');
+  const [filter, setFilter] = useState<'all' | 'flagged' | 'highScore' | 'pending'>('all');
+  const [signingOut, setSigningOut] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
-function DetailIcon({ name }: { name: 'users' | 'voice' | 'chart' | 'alert' | 'search' | 'calendar' | 'download' | 'settings' | 'add' | 'check' }) {
-  const paths = {
-    users: 'M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M20 21v-2a4 4 0 0 0-3-3.87',
-    voice: 'M3 10v4 M7 6v12 M11 3v18 M15 8v8 M19 5v14 M23 10v4',
-    chart: 'M3 3v18h18 M8 15l4-4 4 3 5-7',
-    alert: 'M10.3 3.9 1.8 18.2A2 2 0 0 0 3.5 21h17a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01',
-    search: 'm21 21-4.34-4.34 M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0z',
-    calendar: 'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2z',
-    download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3',
-    settings: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.5-2-1.5A7 7 0 0 0 19 12z',
-    add: 'M12 5v14 M5 12h14',
-    check: 'M20 6 9 17l-5-5',
-  };
-  return <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24"><path d={paths[name]} /></svg>;
-}
+  async function handleSignOut() {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    router.replace('/login');
+    router.refresh();
+  }
 
-function SummaryCard({ title, value, suffix, footer, icon, tone = 'default' }: {
-  title: string;
-  value: string;
-  suffix?: string;
-  footer: string;
-  icon: 'users' | 'voice' | 'chart' | 'alert';
-  tone?: 'default' | 'green' | 'indigo' | 'red';
-}) {
-  const style = {
-    default: { icon: 'bg-gray-100 text-gray-700', value: 'text-gray-950' },
-    green: { icon: 'bg-emerald-50 text-emerald-700', value: 'text-emerald-800' },
-    indigo: { icon: 'bg-indigo-50 text-indigo-700', value: 'text-indigo-900' },
-    red: { icon: 'bg-red-50 text-red-700', value: 'text-red-700' },
-  }[tone];
-  return (
-    <article className="rounded-2xl border border-[#e1e1e1] bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[9px] font-semibold uppercase leading-relaxed tracking-wide text-gray-500">{title}</p>
-        <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${style.icon}`}><DetailIcon name={icon} /></span>
-      </div>
-      <div className="mt-1 flex items-baseline gap-2"><strong className={`text-[30px] leading-none ${style.value}`}>{value}</strong>{suffix && <span className="text-[10px] text-gray-500">{suffix}</span>}</div>
-      <p className="mt-2 text-[9px] text-gray-600">{footer}</p>
-    </article>
-  );
-}
+  function handleCopyCode() {
+    navigator.clipboard.writeText(classCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  }
 
-function StudentStatus({ student }: { student: Student }) {
-  const tone = student.status === 'Đã thẩm định'
-    ? 'border-gray-200 bg-gray-100 text-gray-700'
-    : student.status === 'Chờ GV duyệt'
-      ? 'border-indigo-200 bg-indigo-50 text-indigo-800'
-      : 'border-red-200 bg-red-50 text-red-700';
-  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[9px] font-semibold ${tone}`}>{student.risk && <span aria-hidden="true" className="mr-1">●</span>}{student.status}</span>;
-}
-
-export default function TeacherClassDetail({ classCode }: { classCode: string }) {
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<StudentFilter>('all');
-  const [sortDescending, setSortDescending] = useState(true);
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [notice, setNotice] = useState('');
-
-  const classInfo = {
-    'AIO-8892': { title: 'KTPM-K20: Kiến trúc Phần mềm', secondary: 'IT4409', students: 48, capacity: 50, instructor: 'Kiến trúc Phần mềm', schedule: 'Thứ 3 (Tiết 1-4) • Phòng Lab A3.04', rubric: 'SE-ARCH-V2', submission: '93.3%', average: '8.35', voiceprint: '100%' },
-    'AIO-3419': { title: 'OOP-K21: Lập trình Hướng đối tượng C++', secondary: 'CS102', students: 53, capacity: 60, instructor: 'Lập trình Hướng đối tượng C++', schedule: 'Thứ 5 (Tiết 5-8) • Phòng Lab B1.02', rubric: 'CPP-OOP-V1', submission: '88.3%', average: '9.10', voiceprint: '98%' },
-    'AIO-5510': { title: 'HDH-K21: Hệ điều hành & Mạng máy tính', secondary: 'IT3080', students: 45, capacity: 45, instructor: 'Hệ điều hành & Mạng máy tính', schedule: 'Thứ 2 (Tiết 7-10) • Phòng Lab A2.01', rubric: 'OS-NET-V2', submission: '100%', average: '8.50', voiceprint: '100%' },
-    'AIO-9012': { title: 'KTMT-K19: Thiết kế Hệ thống Nhúng & IoT', secondary: 'IT4100', students: 42, capacity: 45, instructor: 'Thiết kế Hệ thống Nhúng & IoT', schedule: 'Thứ 6 (Tiết 1-4) • Phòng Lab C3.08', rubric: 'EMBED-IOT-V1', submission: '100%', average: '8.80', voiceprint: '100%' },
-  }[classCode];
-
-  const visibleStudents = useMemo(() => demoStudents
-    .filter((student) => `${student.name} ${student.id} ${student.email}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
-    .filter((student) => {
-      if (filter === 'excellent') return student.score >= 9;
-      if (filter === 'pending') return student.status === 'Chờ GV duyệt';
-      if (filter === 'voiceprint') return student.voiceprint !== 'Chưa xác thực';
-      if (filter === 'risk') return student.risk;
+  const filteredStudents = students
+    .filter((s) => {
+      if (filter === 'flagged') return s.status === 'flagged';
+      if (filter === 'highScore') return s.recentScore >= 9.0;
+      if (filter === 'pending') return s.status === 'pending';
       return true;
     })
-    .sort((a, b) => sortDescending ? b.score - a.score : a.score - b.score), [filter, query, sortDescending]);
+    .filter(
+      (s) =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.studentId.includes(search)
+    );
 
-  function toggleStudent(studentId: string) {
-    setSelectedStudents((selected) => selected.includes(studentId)
-      ? selected.filter((id) => id !== studentId)
-      : [...selected, studentId]);
-  }
-
-  function toggleVisibleStudents() {
-    const visibleIds = visibleStudents.map((student) => student.id);
-    const allVisibleSelected = visibleIds.every((id) => selectedStudents.includes(id));
-    setSelectedStudents((selected) => allVisibleSelected
-      ? selected.filter((id) => !visibleIds.includes(id))
-      : [...new Set([...selected, ...visibleIds])]);
-  }
-
-  function exportRoster() {
-    const rows = [
-      ['MSSV', 'Họ và tên', 'Email', 'Voiceprint', 'Điểm AI Oral', 'Trôi chảy', 'WPM', 'Trạng thái'],
-      ...visibleStudents.map((student) => [student.id, student.name, student.email, student.voiceprint, student.score.toString(), `${student.fluency}%`, student.wordsPerMinute.toString(), student.status]),
-    ];
-    const csv = `\uFEFF${rows.map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(',')).join('\r\n')}`;
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${classCode}-danh-sach-sinh-vien-demo.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setNotice('Đã tải danh sách minh họa đang hiển thị. Đây không phải dữ liệu sinh viên thật.');
-  }
-
-  if (!classInfo) return null;
-
-  const selectAllChecked = visibleStudents.length > 0 && visibleStudents.every((student) => selectedStudents.includes(student.id));
   return (
-    <TeacherPageShell currentPage="classes" breadcrumb={`${classCode} / Chi tiết lớp học`}>
-      {(profile) => (
-        <>
-          <section className="rounded-2xl border border-[#e1e1e1] bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
+    <div className="min-h-screen bg-[#f8f9fa] text-[#1a1c1c] antialiased">
+      <TeacherSidebar
+        currentPage="classes"
+        signingOut={signingOut}
+        onSignOut={handleSignOut}
+      />
+
+      <div className="md:ml-[255px]">
+        {/* Header */}
+        <header className="sticky top-0 z-10 flex min-h-[64px] items-center justify-between border-b border-[#e5e5e5] bg-white/95 px-6 backdrop-blur">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Link href="/teacher/classes" className="hover:text-black">
+              Lớp học phụ trách
+            </Link>
+            <span>/</span>
+            <span className="font-semibold text-black">
+              KTPM-K20: Kiến trúc Phần mềm ({classCode})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Link
+              href="/teacher/assignments/create"
+              className="inline-flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-gray-800"
+            >
+              <span>+</span>
+              <span>Tạo đề thi mới</span>
+            </Link>
+          </div>
+        </header>
+
+        {/* Hero Section */}
+        <div className="border-b border-gray-200 bg-white px-6 py-6 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+              <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[9px] font-bold text-indigo-800">HK I 2026-2027</span>
-                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-semibold text-emerald-800">{classInfo.students}/{classInfo.capacity} sinh viên</span>
-                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[9px] text-gray-700">Rubric Oral: {classInfo.rubric}</span>
+                  <span className="rounded bg-black px-2 py-0.5 font-mono text-xs font-bold text-white">
+                    {classCode}
+                  </span>
+                  <span className="rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-600">
+                    IT4409 • Khoa Công nghệ Phần mềm
+                  </span>
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                    ● Đang giảng dạy
+                  </span>
                 </div>
-                <h1 className="mt-3 text-[23px] font-bold leading-tight sm:text-[28px]">{classInfo.title}</h1>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-gray-600">
-                  <span className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1">MÃ LỚP: <b className="ml-1 text-gray-900">{classCode}</b></span>
-                  <span className="flex items-center gap-1"><DetailIcon name="calendar" />{classInfo.schedule}</span>
-                  <span>Giảng viên: {profile.fullName || 'Giảng viên'}</span>
+
+                <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                  KTPM-K20: Kiến trúc Phần mềm Hiện đại
+                </h1>
+                <p className="mt-1 text-xs text-gray-500">
+                  Lịch học: Thứ 3, Tiết 1 - 4 • Phòng Lab A3.04 • Giảng viên: TS. Nguyễn Văn A
+                </p>
+              </div>
+
+              {/* Class Code & Invite Action Box */}
+              <div className="flex items-center gap-2 self-start rounded-2xl border border-indigo-200 bg-[#f8f9ff] p-3 md:self-center">
+                <div>
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-indigo-700">
+                    MÃ LỚP THAM GIA (CLASS CODE)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-lg font-black text-gray-900">{classCode}</span>
+                    <button
+                      onClick={handleCopyCode}
+                      className="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-indigo-900 shadow-xs border border-indigo-200 hover:bg-indigo-50 transition"
+                    >
+                      {copiedCode ? '✓ Đã sao chép' : 'Sao chép'}
+                    </button>
+                    <button
+                      onClick={() => setShowQR(true)}
+                      className="rounded-lg bg-black px-2 py-1 text-xs font-semibold text-white hover:bg-gray-800"
+                    >
+                      Mã QR
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={exportRoster} className="flex h-9 items-center gap-2 rounded-full border border-gray-300 px-3 text-[10px] hover:bg-gray-50"><DetailIcon name="download" />Xuất bảng điểm (CSV)</button>
-                <button type="button" onClick={() => setNotice('Cài đặt lớp chưa kết nối hệ thống lưu trữ.')} className="flex h-9 items-center gap-2 rounded-full border border-gray-300 px-3 text-[10px] hover:bg-gray-50"><DetailIcon name="settings" />Cài đặt lớp</button>
-                <button type="button" onClick={() => setNotice('Chức năng thêm sinh viên chưa kết nối hệ thống ghi danh.')} className="flex h-9 items-center gap-2 rounded-full bg-black px-3 text-[10px] font-semibold text-white hover:bg-gray-800"><DetailIcon name="add" />Thêm sinh viên</button>
+            </div>
+
+            {/* Bento Metrics Cards */}
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
+                <span className="text-[11px] font-semibold text-gray-500 uppercase">Sĩ số lớp</span>
+                <div className="mt-1 text-2xl font-black text-gray-900">48 / 50</div>
+                <span className="text-[11px] text-emerald-700 font-medium">96% ghi danh</span>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+                <span className="text-[11px] font-semibold text-emerald-800 uppercase">Đồng bộ Voiceprint</span>
+                <div className="mt-1 text-2xl font-black text-emerald-950">98.2%</div>
+                <span className="text-[11px] text-emerald-700 font-medium">47/48 sinh viên</span>
+              </div>
+
+              <div className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4">
+                <span className="text-[11px] font-semibold text-indigo-800 uppercase">Điểm TB Oral</span>
+                <div className="mt-1 text-2xl font-black text-indigo-950">8.35 / 10</div>
+                <span className="text-[11px] text-indigo-700 font-medium">+0.4 so với tuần trước</span>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+                <span className="text-[11px] font-semibold text-amber-800 uppercase">Cần lưu ý</span>
+                <div className="mt-1 text-2xl font-black text-amber-950">02</div>
+                <span className="text-[11px] text-amber-700 font-medium">Lệch phổ âm / Chưa nộp</span>
               </div>
             </div>
-            <div className="mt-5 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-gray-200 pt-4 text-[11px]">
-              <span className="border-b-2 border-black pb-2 font-semibold">Danh sách sinh viên <b className="ml-1 rounded-full bg-black px-2 py-0.5 text-[9px] text-white">{classInfo.students}</b></span>
-              <a href="#student-roster" className="pb-2 text-gray-600 hover:text-gray-900">Nội dung câu hỏi <span className="ml-1 rounded-full bg-gray-100 px-1.5">6</span></a>
-              <a href="#student-roster" className="flex items-center gap-1 pb-2 text-gray-600 hover:text-gray-900"><DetailIcon name="voice" />Phổ âm thanh &amp; Biểu đồ lớp</a>
-              <a href="#student-roster" className="flex items-center gap-1 pb-2 text-gray-600 hover:text-gray-900"><DetailIcon name="settings" />Cài đặt Rubric riêng</a>
-              <span className="ml-auto pb-2 text-[9px] text-gray-500">Dữ liệu đồng bộ dạng minh họa</span>
-            </div>
-          </section>
 
-          <span className="mt-3 inline-flex rounded-full border border-[#eadcae] bg-[#fff9e9] px-2 py-0.5 text-[8px] font-semibold text-[#81621c]">DỮ LIỆU SINH VIÊN MINH HỌA · KHÔNG ĐỒNG BỘ HỒ SƠ THẬT</span>
-          <section aria-label="Thống kê lớp học" className="mt-3 grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-            <SummaryCard title="Quy mô & Định danh" value={String(classInfo.students)} suffix={`/ ${classInfo.capacity} sinh viên`} footer={`${classInfo.voiceprint} mẫu giọng đã xác thực (demo)`} icon="users" />
-            <SummaryCard title="Tỷ lệ nộp bài Oral TB" value={classInfo.submission} footer="Đợt khảo thí gần nhất · dữ liệu demo" icon="voice" tone="green" />
-            <SummaryCard title="Điểm trung bình AI Oral" value={classInfo.average} suffix="/ 10" footer="Phân phối điểm minh họa" icon="chart" tone="indigo" />
-            <SummaryCard title="Hỗ trợ phát âm & Lặp" value="4" suffix="sinh viên (demo)" footer="Cần theo dõi các chỉ số luyện nói" icon="alert" tone="red" />
-          </section>
-
-          <section id="student-roster" className="mt-5 rounded-2xl border border-[#e1e1e1] bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex h-10 min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-gray-500">
-                <DetailIcon name="search" />
-                <input aria-label="Tìm sinh viên" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo họ tên, MSSV, email sinh viên..." className="w-full bg-transparent text-[11px] outline-none" />
-              </label>
-              <label className="flex h-10 items-center gap-2 rounded-lg border border-gray-200 px-3 text-[10px]">
-                <span className="sr-only">Sắp xếp điểm AI</span>
-                <select aria-label="Sắp xếp điểm AI" value={sortDescending ? 'desc' : 'asc'} onChange={(event) => setSortDescending(event.target.value === 'desc')} className="bg-white outline-none"><option value="desc">Điểm AI: Cao đến thấp</option><option value="asc">Điểm AI: Thấp đến cao</option></select>
-              </label>
-              <button type="button" onClick={exportRoster} className="flex h-10 items-center gap-2 rounded-lg border border-gray-200 px-3 text-[10px] hover:bg-gray-50"><DetailIcon name="download" />Xuất danh sách</button>
+            {/* Tabs */}
+            <div className="mt-6 flex border-b border-gray-200 gap-6 text-xs font-bold">
+              <button
+                onClick={() => setActiveTab('roster')}
+                className={`pb-3 transition ${
+                  activeTab === 'roster'
+                    ? 'border-b-2 border-black text-black'
+                    : 'text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                Danh sách Sinh viên ({students.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('assignments')}
+                className={`pb-3 transition ${
+                  activeTab === 'assignments'
+                    ? 'border-b-2 border-black text-black'
+                    : 'text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                Đợt thi &amp; Barem khảo thí (4)
+              </button>
+              <button
+                onClick={() => setActiveTab('spectrogram')}
+                className={`pb-3 transition ${
+                  activeTab === 'spectrogram'
+                    ? 'border-b-2 border-black text-black'
+                    : 'text-gray-400 hover:text-gray-700'
+                }`}
+              >
+                Phổ âm học &amp; Biểu đồ lớp
+              </button>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-200 pt-3">
-              <span className="mr-1 text-[9px] font-semibold uppercase text-gray-500">Bộ lọc nhanh:</span>
-              {filterOptions.map((option) => (
-                <button key={option.id} type="button" aria-pressed={filter === option.id} onClick={() => setFilter(option.id)} className={`rounded-full px-3 py-1.5 text-[9px] font-semibold ${filter === option.id ? 'bg-black text-white' : option.id === 'risk' ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                  {option.label}{option.id === 'all' ? ` (${classInfo.students})` : ''}
-                </button>
-              ))}
-            </div>
-            {selectedStudents.length > 0 && <div role="status" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-[10px] text-indigo-900"><span>Đã chọn {selectedStudents.length} sinh viên trong danh sách minh họa.</span><button type="button" onClick={() => setSelectedStudents([])} className="font-semibold underline">Bỏ chọn</button></div>}
-            {notice && <p role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-900">{notice}</p>}
-          </section>
+          </div>
+        </div>
 
-          <section aria-label="Danh sách sinh viên lớp học" className="mt-4 overflow-hidden rounded-2xl border border-[#e1e1e1] bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] border-collapse text-left">
-                <thead className="bg-[#f7f7f7] text-[9px] font-semibold uppercase tracking-wide text-gray-600">
-                  <tr>
-                    <th className="w-10 px-4 py-4"><input aria-label="Chọn tất cả sinh viên đang hiển thị" type="checkbox" checked={selectAllChecked} onChange={toggleVisibleStudents} className="accent-black" /></th>
-                    <th className="px-3 py-4">Sinh viên &amp; MSSV</th>
-                    <th className="px-3 py-4">Xác thực giọng nói</th>
-                    <th className="px-3 py-4">Điểm TB AI Oral</th>
-                    <th className="px-3 py-4">Chỉ số âm phổ &amp; lưu loát</th>
-                    <th className="px-3 py-4">Trạng thái học</th>
-                    <th className="px-3 py-4">Trạng thái gần nhất</th>
-                    <th className="px-3 py-4">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {visibleStudents.map((student) => (
-                    <tr key={student.id} className={student.risk ? 'bg-red-50/30' : 'hover:bg-gray-50'}>
-                      <td className="px-4 py-4"><input aria-label={`Chọn ${student.name}`} type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => toggleStudent(student.id)} className="accent-black" /></td>
-                      <td className="px-3 py-4">
-                        <div className="flex items-center gap-3"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold ${student.risk ? 'border-red-200 bg-red-100 text-red-700' : 'border-gray-200 bg-gray-100 text-gray-700'}`}>{student.initials}</span><span><b className="block text-[11px]">{student.name}</b><span className="mt-1 block text-[9px] text-gray-500">{student.id} · {student.email}</span></span></div>
-                      </td>
-                      <td className="px-3 py-4"><span className={`rounded-full border px-2.5 py-1.5 text-[9px] font-semibold ${student.voiceprint === 'Chưa xác thực' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>◉ {student.voiceprint}</span></td>
-                      <td className="px-3 py-4"><span className={`text-[15px] font-bold ${student.risk ? 'text-red-700' : 'text-gray-900'}`}>{student.score.toFixed(1)}</span><span className="ml-1 rounded-full bg-gray-100 px-2 py-1 text-[8px] text-gray-600">{student.score >= 9 ? 'Xuất sắc' : student.score >= 8 ? 'Giỏi' : 'Khá'}</span></td>
-                      <td className="max-w-[200px] px-3 py-4 text-[9px]"><p>Fluency: <b className={student.risk ? 'text-red-700' : ''}>{student.fluency}%</b><span className="mx-2 text-gray-400">•</span>{student.wordsPerMinute} WPM</p><p className={`mt-1 leading-relaxed ${student.risk ? 'text-red-700' : 'text-gray-500'}`}>{student.note}</p></td>
-                      <td className="px-3 py-4"><span className="rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1.5 text-[9px] text-gray-700">● Chưa xác định</span></td>
-                      <td className="px-3 py-4"><StudentStatus student={student} /></td>
-                      <td className="px-3 py-4"><button type="button" onClick={() => setNotice(`Hồ sơ chi tiết của ${student.name} chưa được kết nối.`)} aria-label={`Xem hồ sơ ${student.name}`} className="rounded-lg px-2 py-1 text-[10px] text-gray-600 hover:bg-gray-100">•••</button></td>
+        {/* Tab 1: Student Roster Content */}
+        {activeTab === 'roster' && (
+          <main className="mx-auto max-w-7xl px-6 py-6 sm:px-8">
+            {/* Filter Toolbar */}
+            <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { id: 'all', label: 'Tất cả sinh viên' },
+                  { id: 'highScore', label: 'Điểm ≥ 9.0 (Top đầu)' },
+                  { id: 'flagged', label: 'Cảnh báo âm học (Flagged)' },
+                  { id: 'pending', label: 'Chưa nộp bài' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setFilter(item.id as typeof filter)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      filter === item.id
+                        ? 'bg-black text-white shadow-xs'
+                        : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative w-full max-w-xs">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Tìm theo MSSV hoặc họ tên..."
+                  className="w-full rounded-full border border-gray-300 bg-white py-1.5 pl-4 pr-8 text-xs text-gray-900 placeholder-gray-400 focus:border-black focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Students Table */}
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50 font-semibold text-gray-600">
+                      <th className="py-3 pl-6 pr-4">Sinh viên &amp; MSSV</th>
+                      <th className="py-3 px-4">Voiceprint Sinh trắc</th>
+                      <th className="py-3 px-4">Bài thi gần nhất</th>
+                      <th className="py-3 px-4">Điểm Oral</th>
+                      <th className="py-3 px-4">Trạng thái thẩm định</th>
+                      <th className="py-3 pr-6 text-right">Thao tác</th>
                     </tr>
-                  ))}
-                  {visibleStudents.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-xs text-gray-500">Không tìm thấy sinh viên phù hợp với bộ lọc.</td></tr>}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredStudents.map((student) => (
+                      <tr key={student.id} className="hover:bg-gray-50/70 transition">
+                        <td className="py-3.5 pl-6 pr-4">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">{student.avatar}</span>
+                            <div>
+                              <span className="font-bold text-gray-900 block">{student.name}</span>
+                              <span className="font-mono text-[11px] text-gray-500">
+                                MSSV: {student.studentId}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {student.voiceprintStatus === 'verified' && (
+                            <div className="flex items-center gap-1.5 text-emerald-800 font-semibold">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              Khớp {student.voiceprintConfidence}%
+                            </div>
+                          )}
+                          {student.voiceprintStatus === 'flagged' && (
+                            <div className="flex items-center gap-1.5 text-red-700 font-semibold">
+                              <span className="h-2 w-2 rounded-full bg-red-500" />
+                              Lệch phổ ({student.voiceprintConfidence}%)
+                            </div>
+                          )}
+                          {student.voiceprintStatus === 'unregistered' && (
+                            <span className="text-gray-400 font-medium">Chưa có mẫu giọng</span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-gray-600">
+                          <span>{student.submissionDate}</span>
+                          {student.flagReason && (
+                            <p className="text-[10px] text-red-600">{student.flagReason}</p>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {student.recentScore > 0 ? (
+                            <span className="font-mono text-sm font-black text-gray-900">
+                              {student.recentScore}
+                              <span className="text-[10px] text-gray-400 font-normal"> / 10</span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {student.status === 'passed' && (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                              Đã ký số duyệt
+                            </span>
+                          )}
+                          {student.status === 'flagged' && (
+                            <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                              Cảnh báo AI
+                            </span>
+                          )}
+                          {student.status === 'pending' && (
+                            <span className="rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">
+                              Chờ nộp
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 pr-6 text-right space-x-2">
+                          <Link
+                            href="/teacher/evaluations/CS102-MID-2024-03"
+                            className="inline-flex rounded-lg bg-black px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
+                          >
+                            Xem bài &amp; Chấm
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 text-[9px] text-gray-500">
-              <p>Hiển thị {visibleStudents.length ? '1' : '0'} - {visibleStudents.length} trong {classInfo.students} sinh viên · Trang demo hiển thị tối đa 6 hồ sơ</p>
-              <div className="flex items-center gap-2"><span>Số hàng:</span><select aria-label="Số sinh viên mỗi trang" className="rounded border border-gray-200 bg-white px-2 py-1"><option>6 / trang</option></select><button type="button" disabled className="rounded border border-gray-200 px-3 py-1 opacity-50">‹ Trước</button><button type="button" aria-current="page" className="rounded bg-black px-3 py-1 font-semibold text-white">1</button><button type="button" disabled className="rounded border border-gray-200 px-3 py-1 opacity-50">Sau ›</button></div>
+          </main>
+        )}
+
+        {/* Tab 2: Assignments */}
+        {activeTab === 'assignments' && (
+          <main className="mx-auto max-w-7xl px-6 py-6 sm:px-8">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-indigo-700 uppercase bg-indigo-50 px-2 py-0.5 rounded">
+                      ĐỢT THI SỐ 03
+                    </span>
+                    <h3 className="mt-1.5 text-base font-bold text-gray-900">
+                      Kiểm tra Vấn đáp Giữa kỳ: Kiến trúc Web Frontend &amp; State Management
+                    </h3>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Hạn nộp: 23:59 - 25/11/2024 • Thời gian trả lời: 90s/câu • Số câu: 2 câu hỏi
+                    </p>
+                  </div>
+                  <Link
+                    href="/teacher/assignments/create"
+                    className="rounded-full border border-gray-300 px-3.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Chỉnh sửa Barem &amp; Từ khóa
+                  </Link>
+                </div>
+              </div>
             </div>
-          </section>
-          <footer className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-4 text-[9px] text-gray-500"><span>AIOralCheck Studio v2.4.2 • Dữ liệu sinh viên được minh họa</span><Link href="/teacher/classes" className="font-medium text-indigo-800 hover:underline">← Quay lại danh sách lớp</Link></footer>
-        </>
+          </main>
+        )}
+
+        {/* Tab 3: Spectrogram */}
+        {activeTab === 'spectrogram' && (
+          <main className="mx-auto max-w-7xl px-6 py-6 sm:px-8">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm text-center">
+              <h3 className="text-base font-bold text-gray-900">Phổ âm thanh toàn lớp (STFT Spectrogram Matrix)</h3>
+              <p className="mt-1 text-xs text-gray-500">
+                Ma trận tần số âm học 128-band FFT thể hiện độ đồng nhất phát âm thuật ngữ kỹ thuật của 48 sinh viên.
+              </p>
+              <div className="mt-6 flex h-36 items-end justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-950 p-4">
+                {Array.from({ length: 48 }, (_, idx) => (
+                  <span
+                    key={idx}
+                    className="w-2 rounded-t bg-gradient-to-t from-indigo-500 via-purple-400 to-emerald-400"
+                    style={{ height: `${20 + ((idx * 23) % 80)}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </main>
+        )}
+      </div>
+
+      {/* QR Code Modal */}
+      {showQR && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-2xl">
+            <h3 className="text-base font-bold text-gray-900">Mã QR Tham gia Lớp học</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              Sinh viên quét mã này để tham gia trực tiếp lớp {classCode}
+            </p>
+            <div className="my-5 flex justify-center">
+              <div className="flex h-44 w-44 items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-2 font-mono text-xs">
+                [ QR Code: aioralcheck.edu.vn/join/{classCode} ]
+              </div>
+            </div>
+            <button
+              onClick={() => setShowQR(false)}
+              className="w-full rounded-full bg-black py-2 text-xs font-semibold text-white hover:bg-gray-800"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
       )}
-    </TeacherPageShell>
+    </div>
   );
 }

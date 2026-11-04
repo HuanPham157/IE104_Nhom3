@@ -1,192 +1,499 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import StudentPageShell from '@/components/StudentPageShell';
+import { useRouter } from 'next/navigation';
+import StudentSidebar from '@/components/StudentSidebar';
+import { supabase } from '@/lib/supabase-browser';
 
-const courses = [
-  { code: 'IT4409', title: 'Kiến trúc Phần mềm', faculty: 'Khoa Công nghệ Thông tin', instructor: 'TS. Nguyễn Văn A', enrolled: 48, capacity: 50, room: 'AIO-8892' },
-  { code: 'CS102', title: 'Lập trình Hướng đối tượng C++', faculty: 'Khoa Khoa học Máy tính', instructor: 'ThS. Lê Hoàng C', enrolled: 53, capacity: 60, room: 'AIO-3419' },
-  { code: 'FL2110', title: 'Tiếng Anh Chuyên ngành IT', faculty: 'Khoa Ngoại ngữ Chuyên nghiệp', instructor: 'ThS. Đỗ Phương Thảo', enrolled: 42, capacity: 45, room: 'AIO-7721' },
-  { code: 'IT3080', title: 'Hệ điều hành & Mạng máy tính', faculty: 'Khoa Kỹ thuật Máy tính', instructor: 'PGS.TS. Trần Quốc V', enrolled: 45, capacity: 45, room: 'AIO-5510' },
-];
-
-const assignments: {
-  course: string;
-  title: string;
-  due: string;
-  duration: string;
-  status: string;
-  tone: 'red' | 'gray' | 'purple' | 'green';
-  action: string;
-}[] = [
-  { course: 'CS102', title: 'Bài tập Oral 2 - Cấu trúc Heap & QuickSort', due: 'Hôm nay 23:59', duration: 'Tối đa: 120s', status: 'Đang mở · Cần nộp', tone: 'red', action: 'Thu âm ngay' },
-  { course: 'CS102', title: 'Vấn đáp OOP: Singleton & Factory Pattern', due: '28/05 23:59', duration: 'Tối đa: 180s', status: 'Còn 2 ngày', tone: 'gray', action: 'Thu âm ngay' },
-  { course: 'IT4409', title: 'Phân tích Microservices Architecture', due: 'Đã nộp: 24/05', duration: '105s / 120s', status: 'Đã nộp · Chờ chấm', tone: 'purple', action: 'Nghe lại' },
-  { course: 'FL2110', title: 'English Tech Pitch: Cloud Distributed Storage', due: 'Hoàn thành: 20/05', duration: 'Thời lượng: 90s', status: 'Đã chấm · 9.2/10', tone: 'green', action: 'Xem kết quả' },
-];
-
-const assignmentTone = {
-  red: 'border-red-200 bg-red-50 text-red-700',
-  gray: 'border-gray-200 bg-gray-100 text-gray-700',
-  purple: 'border-indigo-200 bg-indigo-50 text-indigo-800',
-  green: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-};
-
-function ClassIcon({ name }: { name: 'book' | 'key' | 'person' | 'calendar' }) {
-  const paths = {
-    book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z',
-    key: 'M21 2l-2 2m-7.5 7.5a5 5 0 1 1-7.07 7.07 5 5 0 0 1 7.07-7.07z M14.5 9.5 21 3m-3 3 2 2',
-    person: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
-    calendar: 'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2z',
-  };
-  return <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24"><path d={paths[name]} /></svg>;
+interface EnrolledClass {
+  id: string;
+  code: string;
+  name: string;
+  teacher: string;
+  teacherTitle: string;
+  semester: string;
+  totalAssignments: number;
+  completedAssignments: number;
+  averageScore: number;
+  nextDeadline: string;
+  nextAssignmentTitle: string;
+  status: 'active' | 'completed';
+  accentColor: string;
 }
 
-export default function StudentClasses() {
-  const [search, setSearch] = useState('');
-  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
-  const [classCode, setClassCode] = useState('');
-  const [joinNotice, setJoinNotice] = useState('');
-  const visibleCourses = useMemo(() => courses.filter((course) =>
-    `${course.code} ${course.title} ${course.faculty} ${course.instructor}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
-  ), [search]);
+const initialClasses: EnrolledClass[] = [
+  {
+    id: 'cs102',
+    code: 'CS102',
+    name: 'Lập trình Hướng đối tượng C++',
+    teacher: 'TS. Nguyễn Văn A',
+    teacherTitle: 'Khoa Khoa học Máy tính',
+    semester: 'HK1 • 2026-2027',
+    totalAssignments: 6,
+    completedAssignments: 4,
+    averageScore: 9.1,
+    nextDeadline: '23:59 - 25/11/2024',
+    nextAssignmentTitle: 'Vấn đáp giữa kỳ: Virtual DOM & OOP Design Patterns',
+    status: 'active',
+    accentColor: 'indigo',
+  },
+  {
+    id: 'it4409',
+    code: 'IT4409',
+    name: 'Kiến trúc Phần mềm Hiện đại',
+    teacher: 'ThS. Trần Thị Mai',
+    teacherTitle: 'Khoa Kỹ thuật Phần mềm',
+    semester: 'HK1 • 2026-2027',
+    totalAssignments: 5,
+    completedAssignments: 3,
+    averageScore: 8.5,
+    nextDeadline: '20:00 - 30/11/2024',
+    nextAssignmentTitle: 'Oral Check: Microservices & Event-Driven Architecture',
+    status: 'active',
+    accentColor: 'emerald',
+  },
+  {
+    id: 'it3080',
+    code: 'IT3080',
+    name: 'Hệ điều hành & Mạng máy tính',
+    teacher: 'PGS. TS. Lê Hoàng Nam',
+    teacherTitle: 'Khoa Kỹ thuật Máy tính',
+    semester: 'HK1 • 2026-2027',
+    totalAssignments: 4,
+    completedAssignments: 4,
+    averageScore: 8.8,
+    nextDeadline: 'Đã hoàn thành tất cả bài thi',
+    nextAssignmentTitle: 'Khảo thí cuối kỳ hoàn tất',
+    status: 'completed',
+    accentColor: 'blue',
+  },
+  {
+    id: 'ie104',
+    code: 'IE104',
+    name: 'Thiết kế Giao diện Người dùng',
+    teacher: 'ThS. Nguyễn Văn B',
+    teacherTitle: 'Khoa Hệ thống Thông tin',
+    semester: 'HK1 • 2026-2027',
+    totalAssignments: 4,
+    completedAssignments: 2,
+    averageScore: 9.0,
+    nextDeadline: '23:59 - 05/12/2024',
+    nextAssignmentTitle: 'Bảo vệ Đồ án: Trực quan hóa Giao diện Voice AI',
+    status: 'active',
+    accentColor: 'violet',
+  },
+];
 
-  function handleJoinClass(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setJoinNotice('Bản xem trước chưa kết nối hệ thống ghi danh; mã lớp chưa được gửi hoặc lưu.');
+export default function StudentClasses() {
+  const router = useRouter();
+  const [classes, setClasses] = useState<EnrolledClass[]>(initialClasses);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState<'all' | 'active' | 'completed'>('all');
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [classCodeInput, setClassCodeInput] = useState('');
+  const [joinError, setJoinError] = useState('');
+  const [joinSuccess, setJoinSuccess] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    router.replace('/login');
+    router.refresh();
   }
 
+  function handleJoinClass(e: React.FormEvent) {
+    e.preventDefault();
+    setJoinError('');
+    setJoinSuccess('');
+    const code = classCodeInput.trim().toUpperCase();
+    if (!code) {
+      setJoinError('Vui lòng nhập mã lớp học.');
+      return;
+    }
+
+    if (classes.some((c) => c.code === code)) {
+      setJoinError('Bạn đã tham gia lớp học này rồi.');
+      return;
+    }
+
+    const newClass: EnrolledClass = {
+      id: code.toLowerCase(),
+      code: code,
+      name: code === 'AIO-8892' ? 'KTPM-K20: Kiến trúc Phần mềm Phân tán' : `Học phần khảo thí (${code})`,
+      teacher: 'TS. Nguyễn Văn A',
+      teacherTitle: 'Khoa Công nghệ Thông tin',
+      semester: 'HK1 • 2026-2027',
+      totalAssignments: 3,
+      completedAssignments: 0,
+      averageScore: 0,
+      nextDeadline: '23:59 - 15/12/2024',
+      nextAssignmentTitle: 'Bài tập 01: Giới thiệu Kiến trúc & Nhận dạng giọng nói',
+      status: 'active',
+      accentColor: 'indigo',
+    };
+
+    setClasses([newClass, ...classes]);
+    setJoinSuccess(`Tham gia lớp học ${newClass.code} thành công!`);
+    setTimeout(() => {
+      setShowJoinModal(false);
+      setClassCodeInput('');
+      setJoinSuccess('');
+    }, 1200);
+  }
+
+  const filteredClasses = classes
+    .filter((c) => filterTab === 'all' || c.status === filterTab)
+    .filter(
+      (c) =>
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.teacher.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+  const totalClassesCount = classes.length;
+  const totalPendingAssignments = classes.reduce(
+    (sum, c) => sum + (c.totalAssignments - c.completedAssignments),
+    0
+  );
+  const totalCompletedAssignments = classes.reduce((sum, c) => sum + c.completedAssignments, 0);
+
   return (
-    <StudentPageShell currentPage="classes" breadcrumb="Lớp học của tôi">
-      <section className="flex flex-wrap items-end justify-between gap-4 border-b border-gray-200 pb-4">
-        <div>
-          <h1 className="text-[24px] font-bold leading-tight sm:text-[28px]">Lớp học của tôi &amp; Kế hoạch học tập</h1>
-          <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-gray-600">Quản lý 4 lớp học phần đang tham gia, tiến độ nộp bài vấn đáp oral và lịch nhắc hạn nộp theo thời gian thực.</p>
-          <span className="mt-2 inline-flex rounded-full border border-[#eadcae] bg-[#fff9e9] px-2 py-0.5 text-[8px] font-semibold text-[#81621c]">DỮ LIỆU LỚP HỌC MINH HỌA</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select aria-label="Học kỳ" className="h-10 rounded-full border border-gray-300 bg-white px-3 text-[11px]">
-            <option>Học kỳ: HK II (2024 - 2025)</option>
-          </select>
-          <button type="button" onClick={() => { setJoinDialogOpen(true); setJoinNotice(''); }} className="flex h-10 items-center gap-2 rounded-full bg-[#111] px-4 text-[11px] font-semibold text-white hover:bg-gray-800">
-            <span aria-hidden="true" className="text-base leading-none">+</span> Tham gia lớp bằng mã
-          </button>
-        </div>
-      </section>
+    <div className="min-h-screen bg-[#f8f9fa] text-[#1a1c1c] antialiased">
+      <StudentSidebar
+        currentPage="classes"
+        fullName="Sinh viên A"
+        institutionalId="21520001"
+        signingOut={signingOut}
+        interactiveUnavailable
+        onSignOut={handleSignOut}
+        onUnavailable={(action) => {
+          if (action === 'history') router.push('/student/history');
+          if (action === 'settings') router.push('/student/profile');
+        }}
+      />
 
-      <div className="mt-5 grid items-start gap-5 min-[1180px]:grid-cols-[minmax(0,1.8fr)_minmax(290px,0.82fr)]">
-        <div className="min-w-0">
-          <section aria-labelledby="student-courses-heading">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 id="student-courses-heading" className="flex items-center gap-2 text-[17px] font-bold"><ClassIcon name="book" />Các lớp mình học ({visibleCourses.length} học phần)</h2>
-              <span className="text-[10px] text-gray-500"><span className="mr-1 text-emerald-700">●</span>Đồng bộ dữ liệu tín chỉ Cổng Đào Tạo</span>
-            </div>
-            <label className="mb-3 flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-gray-500">
-              <span aria-hidden="true">⌕</span>
-              <input aria-label="Tìm lớp học" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm theo mã lớp, tên môn học hoặc giảng viên..." className="w-full bg-transparent text-xs outline-none" />
-            </label>
-            {visibleCourses.length ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {visibleCourses.map((course) => (
-                  <article key={course.code} className="rounded-2xl border border-[#e1e1e1] bg-white p-4 shadow-sm sm:p-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 text-[9px] font-semibold">{course.code}</span>
-                      <span className="flex items-center gap-1 text-[9px] text-gray-500"><ClassIcon name="key" />Mã: {course.room}</span>
-                    </div>
-                    <h3 className="mt-3 text-[15px] font-bold leading-snug">{course.title}</h3>
-                    <p className="mt-1 text-[11px] text-gray-600">{course.faculty}</p>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[10px] text-gray-600">
-                      <span className="flex items-center gap-1"><ClassIcon name="person" />{course.instructor}</span>
-                      <span>{course.enrolled}/{course.capacity} sinh viên</span>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3">
-                      <Link href="/tasks" className="text-[10px] text-gray-500 hover:text-gray-900">Xem bài tập →</Link>
-                      <Link href="/tasks" className="rounded-full bg-[#111] px-4 py-2 text-[10px] font-medium text-white hover:bg-gray-800">Vào lớp học</Link>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">Không tìm thấy lớp học phù hợp.</p>
-            )}
-          </section>
+      <div className="md:ml-[255px]">
+        {/* Top Header */}
+        <header className="sticky top-0 z-10 flex min-h-[64px] items-center justify-between border-b border-[#e5e5e5] bg-white/95 px-6 backdrop-blur">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Link href="/student" className="hover:text-black">
+              Cổng sinh viên
+            </Link>
+            <span>/</span>
+            <span className="font-semibold text-black">Lớp học của tôi</span>
+          </div>
 
-          <section aria-labelledby="student-assignments-heading" className="mt-6">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 id="student-assignments-heading" className="text-[17px] font-bold">Bảng danh sách các bài tập oral</h2>
-              <Link href="/tasks" className="text-[10px] font-medium text-indigo-800 hover:underline">Tất cả bài tập →</Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowJoinModal(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-gray-800"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Tham gia lớp bằng mã
+            </button>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="mx-auto max-w-7xl px-6 py-8">
+          {/* Hero Banner */}
+          <div className="mb-6 flex flex-col justify-between gap-4 border-b border-gray-200 pb-6 sm:flex-row sm:items-end">
+            <div>
+              <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-800">
+                HỌC KỲ I • 2026-2027
+              </span>
+              <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                Lớp học của tôi &amp; Kế hoạch học tập
+              </h1>
+              <p className="mt-1 text-sm text-gray-600">
+                Quản lý các học phần đang tham gia, tiến độ nộp bài vấn đáp oral và lịch nhắc hạn nộp (deadline) thời gian thực.
+              </p>
             </div>
-            <div className="overflow-hidden rounded-2xl border border-[#e1e1e1] bg-white shadow-sm">
-              <div className="hidden grid-cols-[minmax(0,1.7fr)_minmax(115px,0.85fr)_minmax(110px,0.8fr)_minmax(90px,0.55fr)] gap-3 bg-[#f1f1f1] px-5 py-4 text-[9px] font-bold uppercase text-gray-600 md:grid">
-                <span>Tên bài tập &amp; môn học</span><span>Hạn nộp &amp; thời lượng</span><span>Trạng thái</span><span>Thao tác</span>
+            <button
+              onClick={() => setShowJoinModal(true)}
+              className="inline-flex items-center gap-2 self-start rounded-full border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50 sm:self-auto"
+            >
+              <svg className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              Nhập mã Class Code
+            </button>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                Lớp học tham gia
+              </span>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-gray-900">{totalClassesCount}</span>
+                <span className="text-xs text-gray-500">học phần</span>
               </div>
-              {assignments.map((assignment) => (
-                <article key={assignment.title} className="grid gap-3 border-t border-gray-200 px-4 py-4 first:border-t-0 sm:px-5 md:grid-cols-[minmax(0,1.7fr)_minmax(115px,0.85fr)_minmax(110px,0.8fr)_minmax(90px,0.55fr)] md:items-center">
-                  <div className="min-w-0">
-                    <span className="rounded bg-gray-100 px-2 py-0.5 text-[9px] font-semibold">{assignment.course}</span>
-                    <h3 className="mt-1 text-[12px] font-semibold leading-snug">{assignment.title}</h3>
-                    {assignment.tone === 'red' && <p className="mt-1 text-[10px] text-red-600">Hết hạn trong 8 giờ 15 phút</p>}
+              <p className="mt-1 text-xs text-emerald-700">✓ 100% tài khoản đã đồng bộ Voiceprint</p>
+            </div>
+
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-800">
+                Bài tập chưa hoàn thành
+              </span>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-amber-900">{totalPendingAssignments}</span>
+                <span className="text-xs text-amber-700">bài cần nộp</span>
+              </div>
+              <p className="mt-1 text-xs text-amber-800">Lưu ý kiểm tra Micro trước khi vào phòng thi</p>
+            </div>
+
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-800">
+                Bài thi oral đã nộp
+              </span>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-indigo-900">{totalCompletedAssignments}</span>
+                <span className="text-xs text-indigo-700">đã chấm điểm</span>
+              </div>
+              <p className="mt-1 text-xs text-indigo-800">Điểm trung bình AI: 8.85 / 10.0</p>
+            </div>
+          </div>
+
+          {/* Filters & Search Bar */}
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex rounded-xl bg-gray-200/70 p-1">
+              <button
+                onClick={() => setFilterTab('all')}
+                className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+                  filterTab === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Tất cả các lớp ({classes.length})
+              </button>
+              <button
+                onClick={() => setFilterTab('active')}
+                className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+                  filterTab === 'active' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Đang diễn ra ({classes.filter((c) => c.status === 'active').length})
+              </button>
+              <button
+                onClick={() => setFilterTab('completed')}
+                className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+                  filterTab === 'completed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Đã hoàn tất ({classes.filter((c) => c.status === 'completed').length})
+              </button>
+            </div>
+
+            <div className="relative w-full max-w-xs">
+              <svg
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 5 5a7.5 7.5 0 0 0 11.65 11.65z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm mã lớp, tên môn học, giảng viên..."
+                className="w-full rounded-full border border-gray-300 bg-white py-2 pl-9 pr-4 text-xs text-gray-900 placeholder-gray-400 focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+              />
+            </div>
+          </div>
+
+          {/* Class Cards Grid */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {filteredClasses.map((item) => {
+              const progressPct = Math.round((item.completedAssignments / item.totalAssignments) * 100);
+              return (
+                <div
+                  key={item.id}
+                  className="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-gray-300 hover:shadow-md"
+                >
+                  <div>
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-lg bg-gray-100 px-2.5 py-1 font-mono text-xs font-bold text-gray-900">
+                          {item.code}
+                        </span>
+                        <span className="text-xs text-gray-500">{item.semester}</span>
+                      </div>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+                          item.status === 'active'
+                            ? 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+                            : 'border border-gray-200 bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {item.status === 'active' ? 'Đang học' : 'Đã kết thúc'}
+                      </span>
+                    </div>
+
+                    <h2 className="mt-3 text-lg font-bold text-gray-900">{item.name}</h2>
+                    <p className="mt-1 text-xs text-gray-600">
+                      Giảng viên: <span className="font-medium text-gray-900">{item.teacher}</span> • {item.teacherTitle}
+                    </p>
+
+                    {/* Progress Bar */}
+                    <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-3.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600">
+                          Tiến độ bài tập: <b>{item.completedAssignments}/{item.totalAssignments}</b>
+                        </span>
+                        <span className="font-semibold text-gray-900">{progressPct}%</span>
+                      </div>
+                      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          className="h-full rounded-full bg-black transition-all duration-300"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500">
+                        <span>Điểm trung bình oral:</span>
+                        <span className="font-bold text-gray-900">
+                          {item.averageScore > 0 ? `${item.averageScore} / 10.0` : 'Chưa có điểm'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Next assignment announcement */}
+                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-indigo-100 bg-[#f8f9ff] p-3 text-xs">
+                      <svg className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <span className="font-semibold text-indigo-900 block">{item.nextAssignmentTitle}</span>
+                        <span className="text-[11px] text-gray-500">Hạn nộp: {item.nextDeadline}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-[10px] leading-5 text-gray-600"><p>{assignment.due}</p><p>{assignment.duration}</p></div>
-                  <span className={`w-fit rounded-full border px-3 py-1.5 text-[9px] font-semibold ${assignmentTone[assignment.tone]}`}>{assignment.status}</span>
-                  <Link href={assignment.tone === 'red' || assignment.tone === 'gray' ? '/student/recorder' : '/tasks'} className="w-fit rounded-full border border-gray-200 px-3 py-2 text-[10px] font-medium hover:bg-gray-50">{assignment.action}</Link>
-                </article>
-              ))}
-            </div>
-          </section>
-        </div>
 
-        <aside className="space-y-4">
-          <section className="rounded-2xl border border-[#e1e1e1] bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-              <h2 className="flex items-center gap-2 text-[15px] font-bold"><ClassIcon name="calendar" />Deadline</h2>
-              <span className="text-[11px] font-semibold">Tháng 5/2025 <span className="ml-1 text-gray-400">‹ ›</span></span>
+                  {/* Actions */}
+                  <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
+                    <Link
+                      href="/student/history"
+                      className="text-xs font-semibold text-gray-600 hover:text-black"
+                    >
+                      Xem điểm &amp; Lịch sử
+                    </Link>
+                    <Link
+                      href="/student/exam/CS102-MID-2024-03"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white transition hover:bg-gray-800"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+                      </svg>
+                      Vào làm bài Oral
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {filteredClasses.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <h3 className="mt-4 text-base font-semibold text-gray-900">Không tìm thấy lớp học</h3>
+              <p className="mt-1 text-xs text-gray-500">
+                Thử kiểm tra lại từ khóa tìm kiếm hoặc tham gia lớp học mới bằng mã code do giảng viên cung cấp.
+              </p>
+              <button
+                onClick={() => setShowJoinModal(true)}
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800"
+              >
+                Tham gia lớp bằng mã
+              </button>
             </div>
-            <div aria-label="Lịch tháng 5 năm 2025" className="mt-3 grid grid-cols-7 gap-y-1 text-center text-[10px]">
-              {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => <span key={day} className="py-2 text-gray-500">{day}</span>)}
-              {Array.from({ length: 35 }, (_, index) => {
-                const day = index - 2;
-                const inMonth = day >= 1 && day <= 31;
-                return <span key={index} className={`flex h-8 items-center justify-center ${!inMonth ? 'text-gray-300' : day === 26 ? 'mx-auto h-7 w-7 rounded-full bg-[#111] font-semibold text-white' : day === 20 || day === 24 || day === 28 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{inMonth ? day : day < 1 ? 28 + day : day - 31}</span>;
-              })}
-            </div>
-            <div className="mt-3 rounded-xl border border-red-100 bg-[#fff5f5] p-3">
-              <p className="text-[9px] font-bold uppercase tracking-wide text-red-700">◷ Deadline gần nhất · Hôm nay</p>
-              <h3 className="mt-2 text-[12px] font-bold">Bài tập Oral 2 - Cấu trúc Heap &amp; QuickSort</h3>
-              <div className="mt-2 flex justify-between gap-2 border-t border-red-100 pt-2 text-[10px]"><span className="text-gray-600">Đếm ngược đóng cổng:</span><b className="text-red-700">Còn 08 giờ 15 phút</b></div>
-            </div>
-            <h3 className="mt-5 text-[11px] font-bold uppercase tracking-wide text-gray-600">Timeline sắp tới</h3>
-            <div className="mt-3 space-y-3">
-              <div className="border-l-2 border-red-500 pl-3"><p className="text-[10px] font-semibold text-red-700">Hôm nay 23:59 · CS102</p><p className="mt-1 text-[11px] font-semibold">Bài tập Oral 2 - Cấu trúc Heap &amp; QuickSort</p><p className="mt-1 text-[10px] text-gray-500">Thu âm phần tích độ phức tạp thuật toán (90s)</p></div>
-              <div className="border-l-2 border-indigo-400 pl-3"><p className="text-[10px] font-semibold text-gray-700">2 ngày nữa (28/05) · CS102</p><p className="mt-1 text-[11px] font-semibold">Vấn đáp OOP: Singleton &amp; Factory Pattern</p><p className="mt-1 text-[10px] text-gray-500">Hỏi ngẫu nhiên 3 câu hỏi mẫu thiết kế hướng đối tượng</p></div>
-              <div className="border-l-2 border-emerald-400 pl-3"><p className="text-[10px] font-semibold text-gray-500">Tuần tới (03/06) · FL2110</p><p className="mt-1 text-[11px] font-semibold">Oral Presentation Tiếng Anh IT</p><p className="mt-1 text-[10px] text-gray-500">Thuyết trình đề tài Cloud Migration Strategy (3 phút)</p></div>
-            </div>
-          </section>
-          <section className="rounded-2xl border border-[#e1e1e1] bg-white p-4 shadow-sm">
-            <h2 className="text-[12px] font-bold">Mẹo thi vấn đáp AI đạt điểm cao</h2>
-            <p className="mt-1 text-[11px] leading-relaxed text-gray-600">Nói với tốc độ đều đặn 130 - 150 từ/phút. Tránh ngắt quãng đột ngột để mô hình Acoustic AI nhận diện tối ưu độ lưu loát (Fluency score).</p>
-          </section>
-        </aside>
+          )}
+        </main>
       </div>
 
-      {joinDialogOpen && (
-        <div role="presentation" className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setJoinDialogOpen(false); }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="join-class-title" className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div><span className="rounded-full bg-indigo-50 px-2 py-1 text-[9px] font-semibold text-indigo-800">LỚP HỌC</span><h2 id="join-class-title" className="mt-2 text-lg font-bold">Tham gia lớp bằng mã</h2></div>
-              <button type="button" onClick={() => setJoinDialogOpen(false)} aria-label="Đóng" className="rounded-lg px-2 py-1 text-gray-500 hover:bg-gray-100">✕</button>
+      {/* MODAL THAM GIA LỚP HỌC BẰNG MÃ */}
+      {showJoinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-white">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-bold text-gray-900">Tham gia lớp học mới</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowJoinModal(false);
+                  setJoinError('');
+                  setJoinSuccess('');
+                }}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                ✕
+              </button>
             </div>
-            <form onSubmit={handleJoinClass} className="mt-4">
-              <label htmlFor="class-code" className="text-xs font-medium">Mã lớp học</label>
-              <input id="class-code" required minLength={4} maxLength={16} value={classCode} onChange={(event) => setClassCode(event.target.value)} placeholder="Ví dụ: AIO-1234" className="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-indigo-500" />
-              <p className="mt-2 text-[11px] text-gray-500">Đây là bản xem trước. Mã lớp sẽ không được gửi hoặc lưu.</p>
-              {joinNotice && <p role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">{joinNotice}</p>}
-              <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setJoinDialogOpen(false)} className="rounded-full border border-gray-300 px-4 py-2 text-xs">Đóng</button><button type="submit" className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white">Kiểm tra mã</button></div>
+
+            <form onSubmit={handleJoinClass} className="mt-4 space-y-4">
+              <p className="text-xs text-gray-600">
+                Nhập mã lớp học (Class Code gồm 8 ký tự, ví dụ: <code className="rounded bg-gray-100 px-1 py-0.5 font-bold text-black">AIO-8892</code>) do giảng viên bộ môn cung cấp:
+              </p>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-700">
+                  Mã lớp học (Class Code) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: AIO-8892"
+                  value={classCodeInput}
+                  onChange={(e) => setClassCodeInput(e.target.value.toUpperCase())}
+                  className="mt-1.5 w-full rounded-xl border border-gray-300 px-3.5 py-2.5 font-mono text-sm uppercase tracking-wider text-black placeholder-gray-400 focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
+                />
+              </div>
+
+              {joinError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700">
+                  {joinError}
+                </div>
+              )}
+
+              {joinSuccess && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-semibold text-emerald-800">
+                  ✓ {joinSuccess}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowJoinModal(false)}
+                  className="rounded-full border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-full bg-black px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-gray-800"
+                >
+                  Xác nhận tham gia
+                </button>
+              </div>
             </form>
-          </section>
+          </div>
         </div>
       )}
-    </StudentPageShell>
+    </div>
   );
 }
