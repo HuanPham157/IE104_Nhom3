@@ -60,3 +60,27 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Keep the existing UI profile table aligned with the canonical OralCheck users table.
+insert into public.users (id, full_name, role, account_status)
+select
+  p.id,
+  p.full_name,
+  case when p.role = 'teacher' then 'lecturer' else 'student' end,
+  'active'
+from public.profiles p
+on conflict (id) do nothing;
+
+insert into public.student_profiles (user_id, student_code, department)
+select p.id, p.institutional_id, p.faculty
+from public.profiles p
+where p.role = 'student'
+  and char_length(p.institutional_id) between 1 and 30
+on conflict do nothing;
+
+insert into public.lecturer_profiles (user_id, lecturer_code, department)
+select p.id, p.institutional_id, p.faculty
+from public.profiles p
+where p.role = 'teacher'
+  and char_length(p.institutional_id) between 1 and 30
+on conflict do nothing;

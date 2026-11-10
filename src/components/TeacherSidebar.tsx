@@ -29,13 +29,14 @@ interface TeacherSidebarProps {
   currentPage: TeacherPage;
   signingOut: boolean;
   onSignOut: () => void;
+  adminMode?: boolean;
   onUnavailable?: (title: string) => void;
   unavailableItemsInteractive?: boolean;
 }
 
 const navItemClass = 'flex h-[38px] w-full items-center gap-3 rounded-xl px-3 text-left text-[12px] transition';
 
-export default function TeacherSidebar({ currentPage, signingOut, onSignOut, onUnavailable, unavailableItemsInteractive = true }: TeacherSidebarProps) {
+export default function TeacherSidebar({ currentPage, signingOut, onSignOut, adminMode = false, onUnavailable, unavailableItemsInteractive = true }: TeacherSidebarProps) {
   const activeClass = 'bg-[#ededed] font-semibold text-[#202124]';
   const inactiveClass = 'text-[#505258] hover:bg-[#ededed]';
 
@@ -50,41 +51,44 @@ export default function TeacherSidebar({ currentPage, signingOut, onSignOut, onU
           <span className="mt-0.5 block text-[9px] text-[#777]">Hệ thống khảo thí âm học AI</span>
         </span>
       </div>
-      <nav aria-label="Điều hướng giảng viên" className="flex flex-1 flex-col px-4 py-5">
+      <nav aria-label={adminMode ? 'Điều hướng quản trị viên' : 'Điều hướng giảng viên'} className="flex flex-1 flex-col px-4 py-5">
         <div className="space-y-1">
-          <Link href="/teacher" aria-current={currentPage === 'overview' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'overview' ? activeClass : inactiveClass}`}>
-            <SidebarIcon name="overview" />Tổng quan
+          <Link href={adminMode ? '/admin' : '/teacher'} aria-current={currentPage === 'overview' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'overview' ? activeClass : inactiveClass}`}>
+            <SidebarIcon name="overview" />{adminMode ? 'Tổng quan quản trị' : 'Tổng quan'}
           </Link>
           <Link href="/teacher/classes" aria-current={currentPage === 'classes' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'classes' ? activeClass : inactiveClass}`}>
-            <SidebarIcon name="classes" />Lớp học &amp; Hội đồng
+            <SidebarIcon name="classes" />{adminMode ? 'Lớp học & Bài tập' : 'Lớp học & Hội đồng'}
           </Link>
           <Link href="/teacher/assignments/create" aria-current={currentPage === 'builder' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'builder' ? activeClass : inactiveClass}`}>
-            <SidebarIcon name="exam" />Soạn đề thi &amp; Barem LLM
+            <SidebarIcon name="exam" />Soạn bài tập
           </Link>
-          <Link href="/teacher/evaluations/CS102-MID-2024-03" aria-current={currentPage === 'evaluations' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'evaluations' ? activeClass : inactiveClass}`}>
-            <SidebarIcon name="wave" />Đánh giá AI &amp; Chấm điểm
-          </Link>
-          <Link href="/teacher/profile" aria-current={currentPage === 'profile' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'profile' ? activeClass : inactiveClass}`}>
-            <SidebarIcon name="profile" />Hồ sơ cán bộ &amp; Học vị
-          </Link>
-          <Link href="/teacher/settings" aria-current={currentPage === 'settings' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'settings' ? activeClass : inactiveClass}`}>
-            <SidebarIcon name="settings" />Cài đặt hệ thống
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => onUnavailable?.('Kho bản ghi âm')}
-            className={`${navItemClass} ${inactiveClass}`}
-          >
-            <SidebarIcon name="recordings" />Kho bản ghi âm
-          </button>
-          <button
-            type="button"
-            onClick={() => onUnavailable?.('Giám sát AI Telemetry')}
-            className={`${navItemClass} ${inactiveClass}`}
-          >
-            <SidebarIcon name="telemetry" />Giám sát AI Telemetry
-          </button>
+          {!adminMode && (
+            <>
+              <button type="button" disabled title="Chức năng đang tạm hoãn" className={`${navItemClass} ${inactiveClass} cursor-not-allowed opacity-50`}>
+                <SidebarIcon name="wave" />Đánh giá AI (tạm hoãn)
+              </button>
+              <Link href="/teacher/profile" aria-current={currentPage === 'profile' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'profile' ? activeClass : inactiveClass}`}>
+                <SidebarIcon name="profile" />Hồ sơ cán bộ &amp; Học vị
+              </Link>
+              <Link href="/teacher/settings" aria-current={currentPage === 'settings' ? 'page' : undefined} className={`${navItemClass} ${currentPage === 'settings' ? activeClass : inactiveClass}`}>
+                <SidebarIcon name="settings" />Cài đặt hệ thống
+              </Link>
+              <button
+                type="button"
+                onClick={() => onUnavailable?.('Kho bản ghi âm')}
+                className={`${navItemClass} ${inactiveClass}`}
+              >
+                <SidebarIcon name="recordings" />Kho bản ghi âm
+              </button>
+              <button
+                type="button"
+                onClick={() => onUnavailable?.('Giám sát AI Telemetry')}
+                className={`${navItemClass} ${inactiveClass}`}
+              >
+                <SidebarIcon name="telemetry" />Giám sát AI Telemetry
+              </button>
+            </>
+          )}
         </div>
 
         <div className="mt-auto border-t border-[#e3e3e3] pt-3">

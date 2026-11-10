@@ -1,15 +1,17 @@
-import ExamCheck from '@/components/ExamCheck';
+import DeferredFeatureNotice from '@/components/DeferredFeatureNotice';
 
 export const metadata = {
   title: 'Kiểm tra thiết bị & Quy chế thi - AIOralCheck',
   description: 'Hiệu chuẩn âm học và webcam trước khi làm bài thi vấn đáp.',
 };
 
-interface ExamPageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default async function StudentExamPage({ params }: ExamPageProps) {
-  const { id } = await params;
-  return <ExamCheck examId={id} />;
+export default function StudentExamPage() {
+  return (
+    <DeferredFeatureNotice
+      title="Kiểm tra thiết bị và quy chế"
+      description="Kiểm tra camera, microphone và quy trình thi chưa được bật trong giai đoạn này."
+      backHref="/student/classes"
+      backLabel="Quay lại lớp học"
+    />
+  );
 }

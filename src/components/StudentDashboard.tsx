@@ -5,14 +5,37 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase-browser';
 import { getCachedProfile, getCachedProfileForRole } from '@/lib/profile-cache';
+import { oralcheckFetch } from '@/lib/oralcheck-client';
 import StudentSidebar from '@/components/StudentSidebar';
+import PageLoadingScreen from '@/components/PageLoadingScreen';
 
 interface StudentProfile {
   full_name: string;
   institutional_id: string;
 }
 
-type IconName = 'overview' | 'classes' | 'assignments' | 'mic' | 'history' | 'settings' | 'logout' | 'search' | 'qr' | 'play' | 'clock' | 'calendar' | 'chart' | 'fire' | 'star' | 'users' | 'check' | 'brain' | 'award' | 'book' | 'sound' | 'chevron' | 'close';
+interface ClassRecord {
+  id: string;
+  class_name: string;
+  class_code: string;
+  status: 'active' | 'pending' | 'rejected';
+}
+
+interface AssignmentRecord {
+  id: string;
+  title: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  status: 'draft' | 'published' | 'closed' | 'archived';
+}
+
+interface DashboardAssignment extends AssignmentRecord {
+  classId: string;
+  className: string;
+  classCode: string;
+}
+
+type IconName = 'overview' | 'classes' | 'assignments' | 'mic' | 'history' | 'settings' | 'logout' | 'search' | 'key' | 'play' | 'clock' | 'calendar' | 'chart' | 'fire' | 'star' | 'users' | 'check' | 'brain' | 'award' | 'book' | 'sound' | 'chevron' | 'close';
 
 const icons: Record<IconName, string> = {
   overview: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
@@ -23,7 +46,7 @@ const icons: Record<IconName, string> = {
   settings: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.5-2-1.5A7 7 0 0 0 19 12z',
   logout: 'M10 17l5-5-5-5 M15 12H3 M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6',
   search: 'm21 21-4.34-4.34 M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0z',
-  qr: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h3v3h-3z M20 14v2 M17 20h4 M20 18v3',
+  key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.778-7.778zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L18 10',
   play: 'm7 4 13 8-13 8z',
   clock: 'M12 8v4l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z',
   calendar: 'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2z',
@@ -46,16 +69,6 @@ function Icon({ name, className = 'h-4 w-4' }: { name: IconName; className?: str
   return <svg aria-hidden="true" className={`${widthClass} ${heightClass} shrink-0 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7"><path d={icons[name]} /></svg>;
 }
 
-const upcoming = [
-  { code: 'CS102 • Tuần 5', title: 'Giải thuật Dijkstra & Cây khung nhỏ nhất', due: 'Hạn chót: 23:59 hôm nay', info: 'Thời lượng: 2 phút', language: 'Song ngữ Anh/Việt', urgent: true },
-  { code: 'CS102 • Tuần 6', title: 'Quy hoạch động & Bài toán Ba lô (Knapsack Problem)', due: 'Mở sau 2 ngày (08:00 Thứ Sáu)', info: 'Thời lượng: 3 phút', language: 'Hội đồng AI: Thang rubric 4 cấp độ', urgent: false },
-];
-
-const courses = [
-  { code: 'CS102', title: 'Lập trình Hướng đối tượng C++', teacher: 'TS. Nguyễn Văn A', progress: 85, students: 48, tasks: 6, color: 'bg-[#111]' },
-  { code: 'IT4409', title: 'Kiến trúc Phần mềm Hiện đại', teacher: 'ThS. Trần Thị Mai', progress: 70, students: 45, tasks: 5, color: 'bg-[#7167ff]' },
-];
-
 export default function StudentDashboard() {
   const router = useRouter();
   const [cachedProfile] = useState(() => getCachedProfileForRole('student'));
@@ -66,6 +79,8 @@ export default function StudentDashboard() {
   const [checking, setChecking] = useState(!cachedProfile);
   const [errorMessage, setErrorMessage] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+  const [classes, setClasses] = useState<ClassRecord[]>([]);
+  const [assignments, setAssignments] = useState<DashboardAssignment[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -83,8 +98,26 @@ export default function StudentDashboard() {
           return;
         }
         if (active) setProfile({ full_name: studentProfile.full_name ?? '', institutional_id: studentProfile.institutional_id ?? '' });
+
+        const { data: enrolledClasses } = await oralcheckFetch<{ data: ClassRecord[] }>('/api/classes');
+        const activeClasses = enrolledClasses.filter((item) => item.status === 'active');
+        const assignmentGroups = await Promise.all(activeClasses.map(async (classItem) => {
+          const { data } = await oralcheckFetch<{ data: AssignmentRecord[] }>(`/api/classes/${classItem.id}/assignments`);
+          return data
+            .filter((assignment) => assignment.status === 'published')
+            .map((assignment) => ({
+              ...assignment,
+              classId: classItem.id,
+              className: classItem.class_name,
+              classCode: classItem.class_code,
+            }));
+        }));
+        if (active) {
+          setClasses(activeClasses);
+          setAssignments(assignmentGroups.flat());
+        }
       } catch {
-        if (active) setErrorMessage('Không thể xác minh tài khoản. Vui lòng kiểm tra kết nối và thử lại.');
+        if (active) setErrorMessage('Không thể tải dữ liệu tài khoản hoặc lớp học. Vui lòng kiểm tra kết nối và thử lại.');
       } finally {
         if (active) setChecking(false);
       }
@@ -107,7 +140,7 @@ export default function StudentDashboard() {
     }
   }
 
-  if (checking) return <main className="flex min-h-screen items-center justify-center bg-[#f8f8f8] text-sm text-gray-600">Đang xác minh tài khoản sinh viên...</main>;
+  if (checking) return <PageLoadingScreen title="Đang tải trang tổng quan" description="Đang chuẩn bị lớp học và bài tập của bạn." />;
   if (errorMessage && !profile) return <main className="flex min-h-screen items-center justify-center p-5"><div className="max-w-md rounded-xl border border-red-200 bg-white p-6 text-center"><p role="alert" className="text-sm text-red-700">{errorMessage}</p><button type="button" onClick={() => window.location.reload()} className="mt-4 rounded-lg bg-black px-4 py-2 text-sm text-white">Thử lại</button></div></main>;
   if (!profile) return null;
 
@@ -128,11 +161,9 @@ export default function StudentDashboard() {
           <div className="min-w-0 text-[11px] text-gray-500">Phân hệ Sinh viên <span className="mx-1">›</span> <b className="text-gray-800">Trang chủ Tổng quan</b></div>
           <div className="flex shrink-0 items-center gap-2">
             <Link href="/student/classes" className="hidden h-10 items-center gap-2 rounded-full border border-gray-300 bg-white px-4 text-[11px] font-medium hover:bg-gray-50 sm:flex">
-              <Icon name="qr" />Tham gia lớp học mới bằng mã
+              <Icon name="key" />Tham gia lớp học mới bằng mã
             </Link>
-            <Link href="/student/exam/CS102-MID-2024-03" className="flex h-10 items-center gap-2 rounded-full bg-black px-4 text-[10px] font-semibold text-white hover:bg-gray-800">
-              <Icon name="mic" className="text-indigo-400" /><span className="hidden sm:inline">Vào phòng thi thử nghiệm (Audio Lab)</span><span className="sm:hidden">Audio Lab</span>
-            </Link>
+            <span className="hidden h-10 items-center rounded-full border border-gray-200 px-4 text-[10px] text-gray-500 sm:flex">Ghi âm đang tạm hoãn</span>
             <button type="button" onClick={handleSignOut} disabled={signingOut} aria-label="Đăng xuất" className="flex h-9 w-9 items-center justify-center rounded-full border md:hidden">
               <Icon name="logout" />
             </button>
@@ -144,17 +175,16 @@ export default function StudentDashboard() {
           <section className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-200 pb-5">
             <div>
               <h1 className="text-[24px] font-bold leading-tight sm:text-[28px]">Chào buổi sáng, {name}! 👋</h1>
-              <p className="mt-2 text-[13px] text-gray-600">Hôm nay bạn có <b className="text-red-600">2 bài tập vấn đáp AI</b> cần hoàn thành trước thời hạn.</p>
-              <span className="mt-2 inline-flex rounded-full border border-[#eadcae] bg-[#fff9e9] px-2 py-0.5 text-[8px] font-semibold text-[#81621c]">DỮ LIỆU DASHBOARD MINH HỌA</span>
+              <p className="mt-2 text-[13px] text-gray-600">Bạn có <b className="text-gray-900">{assignments.length} bài tập</b> được giao trong các lớp đang tham gia.</p>
             </div>
-            <span className="rounded-full border border-[#94dfb7] bg-[#effaf4] px-3 py-1.5 text-[10px] font-semibold text-[#087b48]">Kỳ 1 • 2024</span>
+            <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-[10px] font-semibold text-gray-600">Học kỳ hiện tại</span>
           </section>
 
-          <section aria-label="Thống kê học tập minh họa" className="mt-5 grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 2xl:grid-cols-4">
-            <StudentMetric title="Điểm GPA Vấn đáp" value="8.8" suffix="/ 10.0" footer="+0.3 • Top 5% toàn lớp" icon="star" />
-            <StudentMetric title="Bài tập Oral" value="12" suffix="/ 14 hoàn thành" footer="85.7% (2 bài mở)" icon="users" progress />
-            <StudentMetric title="Mức độ hiểu bài & Barem AI" value="92%" suffix="mức độ hiểu" footer="Ý đúng: 4/4 • Độ mạch lạc: Tốt" icon="sound" />
-            <StudentMetric title="Huy hiệu & Chuỗi học tập" value="7 ngày" suffix="liên tiếp 🔥" footer='Danh hiệu "Bậc thầy diễn đạt"' icon="fire" />
+          <section aria-label="Thống kê học tập" className="mt-5 grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 2xl:grid-cols-4">
+            <StudentMetric title="Lớp đang tham gia" value={String(classes.length)} suffix="lớp học" footer="Dữ liệu từ hệ thống" icon="book" />
+            <StudentMetric title="Bài tập được giao" value={String(assignments.length)} suffix="bài" footer="Bài đã được giảng viên công bố" icon="users" />
+            <StudentMetric title="Điểm đã công bố" value="—" suffix="" footer="Chưa có dữ liệu điểm" icon="chart" />
+            <StudentMetric title="Ghi âm và AI" value="—" suffix="" footer="Tính năng đang tạm hoãn" icon="sound" />
           </section>
 
           <div className="mt-5 grid items-start gap-5 min-[1100px]:grid-cols-[minmax(0,1.8fr)_minmax(290px,0.9fr)]">
@@ -164,37 +194,26 @@ export default function StudentDashboard() {
                   <h2 className="flex items-center gap-2 text-[17px] font-bold">
                     <Icon name="clock" className="text-red-600" />Bài tập vấn đáp cần nộp gấp (Deadlines)
                   </h2>
-                  <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[9px] font-semibold text-red-600">2 bài chờ thực hiện</span>
+                  <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[9px] font-semibold text-gray-600">{assignments.length} bài được giao</span>
                 </div>
                 <div className="mt-4 space-y-3">
-                  {upcoming.map((item) => (
-                    <article key={item.code} className={`rounded-xl border p-4 ${item.urgent ? 'border-[#f2b1b1] bg-[#fffafa]' : 'border-[#e2e2e2] bg-[#fafafa]'}`}>
+                  {assignments.map((item) => (
+                    <article key={item.id} className="rounded-xl border border-[#e2e2e2] bg-[#fafafa] p-4">
                       <div className="flex flex-wrap items-center gap-3">
-                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.urgent ? 'bg-[#fde8e8] text-red-600' : 'bg-[#efefef] text-gray-600'}`}>
-                          <Icon name={item.urgent ? 'mic' : 'calendar'} />
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#efefef] text-gray-600">
+                          <Icon name="calendar" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <span className="rounded bg-[#111] px-2 py-1 text-[9px] font-semibold text-white">{item.code}</span>
-                          <p className={`mt-2 text-[11px] font-semibold ${item.urgent ? 'text-red-600' : 'text-gray-600'}`}>{item.due}</p>
+                          <span className="rounded bg-[#111] px-2 py-1 text-[9px] font-semibold text-white">{item.classCode}</span>
+                          <p className="mt-2 text-[11px] text-gray-600">{item.ends_at ? `Hạn nộp: ${new Date(item.ends_at).toLocaleString('vi-VN')}` : 'Chưa đặt hạn nộp'}</p>
                           <h3 className="mt-1 text-[15px] font-bold">{item.title}</h3>
-                          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-600">
-                            <span className="flex items-center gap-1"><Icon name="clock" className="h-3 w-3" />{item.info}</span>
-                            <span>•</span>
-                            <span>{item.language}</span>
-                          </div>
-                          {item.urgent && <p className="mt-2 text-[10px] text-gray-500">Tiêu chí: Độ trôi chảy, Kiến trúc thuật toán</p>}
+                          <p className="mt-2 text-[10px] text-gray-600">{item.className}</p>
                         </div>
-                        {item.urgent ? (
-                          <Link href="/student/exam/CS102-MID-2024-03" className="flex h-10 items-center gap-2 rounded-full bg-black px-4 text-[10px] font-semibold text-white hover:bg-gray-800">
-                            <Icon name="play" className="h-3.5 w-3.5 text-indigo-400" />
-                            Vào phòng thu âm ngay
-                          </Link>
-                        ) : (
-                          <button type="button" disabled className="h-9 rounded-full border bg-white px-4 text-[10px] text-gray-500">Chưa mở đề thi</button>
-                        )}
+                        <Link href={`/student/classes/${item.classId}`} className="flex h-9 items-center rounded-full border bg-white px-4 text-[10px] font-semibold hover:bg-gray-100">Xem lớp</Link>
                       </div>
                     </article>
                   ))}
+                  {assignments.length === 0 && <p className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-xs text-gray-600">Chưa có bài tập nào được công bố.</p>}
                 </div>
               </section>
 
@@ -202,134 +221,54 @@ export default function StudentDashboard() {
                 <div className="flex items-center justify-between border-b border-gray-200 pb-3">
                   <h2 className="flex items-center gap-2 text-[17px] font-bold"><Icon name="classes" />Lớp học đang ghi danh</h2>
                   <Link href="/student/classes" className="text-[10px] font-semibold text-indigo-800 hover:underline">
-                    Xem tất cả ({courses.length}) →
+                    Xem tất cả ({classes.length}) →
                   </Link>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {courses.map((course) => (
-                    <article key={course.code} className="rounded-xl border border-[#e0e0e0] bg-[#fafafa] p-4">
+                  {classes.map((course) => (
+                    <Link href={`/student/classes/${course.id}`} key={course.id} className="block rounded-xl border border-[#e0e0e0] bg-[#fafafa] p-4 hover:border-indigo-300">
                       <div className="flex justify-between">
-                        <span className="rounded bg-[#eee] px-2 py-0.5 text-[9px] font-semibold">{course.code}</span>
+                        <span className="rounded bg-[#eee] px-2 py-0.5 text-[9px] font-semibold">{course.class_code}</span>
                         <span className="rounded-full border border-[#98dfb9] bg-[#eefaf3] px-2 py-0.5 text-[9px] font-semibold text-[#087b48]">Đang học</span>
                       </div>
-                      <h3 className="mt-3 truncate text-[14px] font-bold">{course.title}</h3>
-                      <p className="mt-1 flex items-center gap-1 text-[10px] text-gray-600"><Icon name="users" className="h-3 w-3" />Giảng viên: {course.teacher}</p>
-                      <div className="mt-3 border-t border-gray-200 pt-3">
-                        <div className="flex justify-between text-[10px]"><span className="text-gray-600">Tiến độ vấn đáp</span><b>{course.progress}%</b></div>
-                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-200"><div className={`h-full rounded-full ${course.color}`} style={{ width: `${course.progress}%` }} /></div>
-                        <div className="mt-2 flex justify-between text-[9px] text-gray-500"><span>{course.students} sinh viên</span><span>{course.tasks} bài tập oral</span></div>
-                      </div>
-                    </article>
+                      <h3 className="mt-3 truncate text-[14px] font-bold">{course.class_name}</h3>
+                    </Link>
                   ))}
+                  {classes.length === 0 && <p className="col-span-full rounded-xl border border-dashed border-gray-300 p-6 text-center text-xs text-gray-600">Bạn chưa tham gia lớp học nào. Dùng mã lớp để tham gia.</p>}
                 </div>
               </section>
 
               <section className="rounded-2xl border border-[#e1e1e1] bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-3">
                   <div>
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Báo cáo đánh giá</p>
-                    <h2 className="text-[17px] font-bold">Bài nộp gần nhất đã có điểm</h2>
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Kết quả học tập</p>
+                    <h2 className="text-[17px] font-bold">Điểm đã công bố</h2>
                   </div>
-                  <span className="rounded-full border border-[#c9c4ff] bg-[#f0efff] px-3 py-1 text-[9px] font-bold text-indigo-800">
-                    ĐÃ THẨM ĐỊNH BỞI GIẢNG VIÊN
-                  </span>
+                  <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[9px] font-bold text-gray-600">CHƯA TÍCH HỢP</span>
                 </div>
-                <article className="mt-4 rounded-xl border border-[#e0e0e0] bg-[#fafafa] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="rounded bg-black px-2 py-1 text-[9px] font-bold text-white">Tuần 4</span>
-                        <h3 className="text-[14px] font-bold">Giải thuật QuickSort &amp; Phân tích Đệ quy chia để trị</h3>
-                      </div>
-                      <p className="mt-2 text-[10px] text-gray-500">Nộp lúc 21:15 • 24/10/2024 • File: rec_quicksort_21520001.webm</p>
-                    </div>
-                    <span className="rounded-lg border bg-white px-3 py-2 text-[9px] text-gray-500">
-                      Điểm số: <b className="text-[21px] text-gray-900">9.0</b> / 10
-                    </span>
-                  </div>
-                  <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3">
-                    <div className="flex items-center gap-3">
-                      <Link href="/student/history" aria-label="Phát bản thu" className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-white hover:bg-gray-800">
-                        <Icon name="play" className="h-3.5 w-3.5" />
-                      </Link>
-                      <span className="text-[10px]">00:48 / 01:45</span>
-                      <span className="ml-auto rounded bg-gray-100 px-2 py-1 text-[9px]">1.0x</span>
-                      <Icon name="sound" className="h-4 w-4" />
-                    </div>
-                    <div aria-label="Dạng sóng bản thu demo" className="mt-2 flex h-6 items-center gap-[2px] overflow-hidden">
-                      {Array.from({ length: 48 }, (_, index) => <span key={index} className={`w-[3px] shrink-0 rounded-full ${index < 17 ? 'bg-indigo-700' : 'bg-gray-300'}`} style={{ height: `${7 + ((index * 17) % 18)}px` }} />)}
-                    </div>
-                  </div>
-                  <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-900 text-white">
-                        <Icon name="brain" className="h-4 w-4" />
-                      </span>
-                      <b className="text-[10px]">Nhận xét từ Trợ lý AIOralCheck</b>
-                      <span className="rounded-full bg-[#eeebff] px-2 py-0.5 text-[8px] font-semibold text-indigo-800">Tin cậy 98.4%</span>
-                    </div>
-                    <p className="mt-2 text-[10px] leading-relaxed text-gray-600">
-                      “Phát âm chuẩn xác thuật ngữ Partition, Pivot element. Nêu rõ độ phức tạp O(n log n) trung bình và trường hợp xấu O(n^2). Giọng nói to rõ, tự tin.”
-                    </p>
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <Link href="/student/history" className="text-xs font-semibold text-indigo-800 hover:underline">
-                      Xem lịch sử chi tiết &amp; Phúc khảo →
-                    </Link>
-                  </div>
-                </article>
+                <p className="mt-4 rounded-xl border border-dashed border-gray-300 p-6 text-center text-xs text-gray-600">Điểm số sẽ hiển thị sau khi có luồng nộp bài và giảng viên công bố kết quả.</p>
               </section>
             </div>
 
             <aside className="space-y-5">
               <section className="rounded-2xl border border-[#e1e1e1] bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between border-b pb-3">
-                  <h2 className="flex items-center gap-2 text-[15px] font-bold"><Icon name="settings" />Kiểm tra âm thanh nhanh</h2>
-                  <i className="h-2.5 w-2.5 rounded-full bg-[#078344]" />
+                  <h2 className="flex items-center gap-2 text-[15px] font-bold"><Icon name="settings" />Ghi âm và phân tích</h2>
+                  <span className="rounded-full bg-gray-100 px-2 py-1 text-[9px] text-gray-600">Tạm hoãn</span>
                 </div>
-                <p className="mt-3 text-[11px] leading-relaxed text-gray-600">Đảm bảo micro khử ồn tốt trước khi bắt đầu phiên vấn đáp AI chính thức.</p>
-                <div className="mt-3 rounded-xl border bg-[#fafafa] p-3">
-                  <div className="flex justify-between text-[9px] text-gray-500">
-                    <span>NOISE FLOOR: -42 dB</span><b className="text-[#087b48]">SIGNAL: OK</b>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-300">
-                    <div className="h-full w-[65%] rounded-full bg-[#087b48]" />
-                  </div>
-                  <div className="mt-3 flex h-8 items-end justify-around">
-                    {[12, 24, 17, 30, 21, 28, 14, 25, 16, 20].map((height, index) => <span key={index} className="w-1 rounded-t bg-indigo-500" style={{ height }} />)}
-                  </div>
-                </div>
-                <Link href="/student/profile" className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-full border border-gray-300 text-[10px] font-semibold hover:bg-gray-50">
-                  <Icon name="mic" className="text-indigo-700" />Cấu hình Micro &amp; Voiceprint
-                </Link>
+                <p className="mt-3 text-[11px] leading-relaxed text-gray-600">Tính năng ghi âm, Speech-to-Text và chấm điểm AI chưa được bật.</p>
               </section>
 
               <section className="rounded-2xl border border-[#e1e1e1] bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between border-b pb-3">
-                  <h2 className="flex items-center gap-2 text-[15px] font-bold"><Icon name="award" />Bảng xếp hạng lớp CS102</h2>
-                  <Link href="/student/history" className="rounded bg-gray-100 px-2 py-1 text-[9px] text-gray-600 hover:text-black">
-                    Chi tiết →
-                  </Link>
+                  <h2 className="flex items-center gap-2 text-[15px] font-bold"><Icon name="award" />Bảng xếp hạng</h2>
                 </div>
-                <div className="mt-3 space-y-2">
-                  {[
-                    ['1', 'Nguyễn Đăng Khoa', '21520012', '9.7'],
-                    ['2', 'Lê Thị Thu Thảo', '21520045', '9.5'],
-                    ['3', `Bạn (${name})`, profile.institutional_id || '21520001', '9.2'],
-                  ].map(([rank, student, id, score]) => (
-                    <div key={rank} className={`flex items-center gap-2 rounded-xl border p-2.5 ${rank === '3' ? 'border-indigo-300 bg-[#f8f7ff]' : 'border-gray-200 bg-[#fafafa]'}`}>
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#eee6c9] text-[10px] font-bold">{rank}</span>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-[9px] font-semibold">{student.slice(0, 1)}</span>
-                      <span className="min-w-0 flex-1"><b className="block truncate text-[10px]">{student}</b><small className="text-[9px] text-gray-500">{id}</small></span>
-                      <b className="text-[12px]">{score}<small className="ml-0.5 text-[8px]">đ</small></b>
-                    </div>
-                  ))}
-                </div>
+                <p className="mt-3 text-[11px] text-gray-600">Chưa có dữ liệu xếp hạng được công bố.</p>
               </section>
             </aside>
           </div>
           <footer className="mt-7 border-t border-gray-200 pt-4 text-[9px] text-gray-500">
-            AIOralCheck Studio v2.4.2 • Hệ thống khảo thí âm học &amp; Khảo thí tự động AI <span className="mx-2">•</span> Chuẩn bảo mật ISO/IEC 2382-37 <span className="float-right font-medium text-gray-700">Bản quyền © 2025 Đại học Bách Khoa</span>
+            OralCheck • Quản lý lớp học và bài tập <span className="float-right font-medium text-gray-700">Hệ thống học tập</span>
           </footer>
         </div>
       </div>

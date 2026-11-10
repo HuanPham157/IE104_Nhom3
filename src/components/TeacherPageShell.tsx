@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
 import { getCachedProfile, getCachedProfileForRole } from '@/lib/profile-cache';
 import TeacherSidebar from '@/components/TeacherSidebar';
+import PageLoadingScreen from '@/components/PageLoadingScreen';
 
 export interface TeacherPageProfile {
   fullName: string;
@@ -59,7 +60,7 @@ export default function TeacherPageShell({ currentPage, breadcrumb, children }: 
           });
         }
       } catch {
-        if (active) setErrorMessage('Không thể xác minh tài khoản giảng viên. Vui lòng kiểm tra kết nối và thử lại.');
+        if (active) setErrorMessage('Không thể tải hồ sơ giảng viên. Vui lòng kiểm tra kết nối và thử lại.');
       } finally {
         if (active) setChecking(false);
       }
@@ -89,9 +90,7 @@ export default function TeacherPageShell({ currentPage, breadcrumb, children }: 
     }
   }
 
-  if (checking) {
-    return <main className="flex min-h-screen items-center justify-center bg-[#f8f8f8] text-sm text-gray-600">Đang xác minh tài khoản giảng viên...</main>;
-  }
+  if (checking) return <PageLoadingScreen title="Đang tải hồ sơ giảng viên" description="Đang chuẩn bị không gian làm việc của bạn." />;
   if (errorMessage && !profile) {
     return (
       <main className="flex min-h-screen items-center justify-center p-5">

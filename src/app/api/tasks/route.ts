@@ -19,7 +19,7 @@ const inputSchema = z
 export async function GET(request: Request) {
   try {
     const auth = await authRequest(request);
-    if (!auth) return json({ error: 'Chưa đăng nhập' }, 401);
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
 
     const profile = await getProfileRole(auth.db, auth.user.id);
     if (profile.error) return json({ error: 'Không thể kiểm tra quyền truy cập' }, 500);
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const auth = await authRequest(request);
-    if (!auth) return json({ error: 'Chưa đăng nhập' }, 401);
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
 
     const profile = await getProfileRole(auth.db, auth.user.id);
     if (profile.error) return json({ error: 'Không thể kiểm tra quyền truy cập' }, 500);

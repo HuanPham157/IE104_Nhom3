@@ -1,4 +1,4 @@
-import StudentRecorder from '@/components/StudentRecorder';
+import DeferredFeatureNotice from '@/components/DeferredFeatureNotice';
 
 export const metadata = {
   title: 'Kiểm tra thiết bị phòng thi - AIOralCheck',
@@ -6,5 +6,12 @@ export const metadata = {
 };
 
 export default function StudentRecorderPage() {
-  return <StudentRecorder />;
+  return (
+    <DeferredFeatureNotice
+      title="Ghi âm câu trả lời"
+      description="Ghi âm, camera và nhận diện giọng nói đang được tạm hoãn. Bạn vẫn có thể xem lớp học và bài tập đã được công bố."
+      backHref="/student/classes"
+      backLabel="Xem lớp học"
+    />
+  );
 }

@@ -97,7 +97,7 @@ test.describe('Kiểm thử E2E luồng người dùng hoàn chỉnh', () => {
 
     // 4. Mở khu vực công việc cá nhân từ dashboard sinh viên
     await page.waitForURL('**/student');
-    await page.getByRole('link', { name: 'Bài tập oral' }).click();
+    await page.getByRole('link', { name: 'Việc cá nhân' }).click();
     await page.waitForURL('**/tasks');
     await expect(page).toHaveURL(/\/tasks/);
 

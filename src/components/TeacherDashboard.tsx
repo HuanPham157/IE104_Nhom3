@@ -5,12 +5,33 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase-browser';
 import { getCachedProfile, getCachedProfileForRole } from '@/lib/profile-cache';
+import { oralcheckFetch } from '@/lib/oralcheck-client';
 import TeacherSidebar from '@/components/TeacherSidebar';
+import PageLoadingScreen from '@/components/PageLoadingScreen';
 
 interface TeacherProfile {
   full_name: string;
   faculty: string;
   institutional_id: string;
+}
+
+interface ClassRecord {
+  id: string;
+  class_name: string;
+  description: string | null;
+  class_code: string;
+  status: 'pending' | 'active' | 'rejected' | 'archived';
+}
+
+interface NotificationRecord {
+  id: string;
+  title: string;
+  message: string;
+  notification_type: string;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  is_read: boolean;
+  created_at: string;
 }
 
 type IconName =
@@ -76,27 +97,6 @@ function Icon({ name, className = 'h-4 w-4' }: { name: IconName; className?: str
   );
 }
 
-const demoClasses = [
-  {
-    code: 'KTPM-K20',
-    title: 'Kiến trúc Phần mềm Nâng cao',
-    description: 'Đánh giá đồ án vấn đáp microservices & fault tolerance',
-    totalStudents: 48,
-    badge: 'Đang mở phòng thi',
-    progress: 100,
-    progressLabel: '48 / 48 bài nộp',
-  },
-  {
-    code: 'CS102',
-    title: 'Lập trình Hướng đối tượng C++',
-    description: 'Khảo thí oral exam thuật toán Heap, Graph & Dynamic Programming',
-    totalStudents: 56,
-    badge: 'Đang mở phòng thi',
-    progress: 100,
-    progressLabel: '56 / 56 bài nộp',
-  },
-];
-
 export default function TeacherDashboard() {
   const router = useRouter();
   const [cachedProfile] = useState(() => getCachedProfileForRole('teacher'));
@@ -108,8 +108,13 @@ export default function TeacherDashboard() {
   const [checking, setChecking] = useState(!cachedProfile);
   const [signingOut, setSigningOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [adminMode, setAdminMode] = useState(false);
+  const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [activeDialog, setActiveDialog] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -125,20 +130,24 @@ export default function TeacherDashboard() {
 
         const data = await getCachedProfile(session.user.id);
 
-        if (data?.role !== 'teacher') {
+        if (data?.role !== 'teacher' && data?.role !== 'admin') {
           router.replace(data?.role === 'student' ? '/student' : '/login');
           return;
         }
 
         if (active) {
+          setAdminMode(data.role === 'admin');
           setProfile({
             full_name: data.full_name ?? '',
             faculty: data.faculty ?? '',
             institutional_id: data.institutional_id ?? '',
           });
         }
+
+        const response = await oralcheckFetch<{ data: ClassRecord[] }>('/api/classes');
+        if (active) setClasses(response.data);
       } catch {
-        if (active) setErrorMessage('Không thể xác minh tài khoản. Kiểm tra kết nối rồi thử lại.');
+        if (active) setErrorMessage('Không thể tải dữ liệu tài khoản hoặc lớp học. Kiểm tra kết nối rồi thử lại.');
       } finally {
         if (active) setChecking(false);
       }
@@ -170,13 +179,21 @@ export default function TeacherDashboard() {
     }
   }
 
-  if (checking) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7f8fa] px-5 text-sm text-[#667085]">
-        Đang xác minh tài khoản giảng viên...
-      </main>
-    );
+  async function openNotifications() {
+    setActiveDialog('notifications');
+    setNotificationsLoading(true);
+    setNotificationsError('');
+    try {
+      const { data } = await oralcheckFetch<{ data: NotificationRecord[] }>('/api/notifications');
+      setNotifications(data);
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : 'Không thể tải thông báo.');
+    } finally {
+      setNotificationsLoading(false);
+    }
   }
+
+  if (checking) return <PageLoadingScreen title="Đang tải trang tổng quan" description="Đang chuẩn bị thông tin lớp học của bạn." />;
 
   if (errorMessage && !profile) {
     return (
@@ -196,22 +213,21 @@ export default function TeacherDashboard() {
 
   return (
     <main className={`min-h-screen ${darkMode ? 'bg-[#eceef3] text-[#202124]' : 'bg-[#f8f8f8] text-[#202124]'}`}>
-      <TeacherSidebar currentPage="overview" signingOut={signingOut} onSignOut={handleSignOut} unavailableItemsInteractive={false} onUnavailable={(title) => setActiveDialog(title)} />
+      <TeacherSidebar currentPage="overview" signingOut={signingOut} onSignOut={handleSignOut} adminMode={adminMode} unavailableItemsInteractive={false} onUnavailable={(title) => setActiveDialog(title)} />
 
       <div className="md:ml-[255px]">
         <header className="sticky top-0 z-10 flex min-h-[70px] items-center justify-between gap-3 border-b border-[#e5e5e5] bg-white/95 px-5 backdrop-blur sm:px-8">
           <div className="flex min-w-0 items-center gap-2 text-[11px] text-[#666] sm:gap-3">
             <span className="font-medium">Tổng quan</span><span>/</span><span className="font-semibold text-[#282828]">Bảng điều khiển</span>
-            <span className="ml-1 hidden rounded-full border border-[#c7c1ff] bg-[#f0efff] px-2.5 py-1 text-[9px] font-semibold text-[#3430a8] sm:inline-flex">Học kỳ I • 2026-2027</span>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <button type="button" onClick={() => setActiveDialog('settings')} aria-label="Cài đặt nhanh" className="hidden h-8 w-8 items-center justify-center rounded-lg text-[#555] hover:bg-[#f1f1f1] sm:flex"><Icon name="sliders" className="h-[17px] w-[17px]" /></button>
-            <button type="button" onClick={() => setActiveDialog('notifications')} aria-label="Thông báo" className="relative hidden h-8 w-8 items-center justify-center rounded-lg text-[#555] hover:bg-[#f1f1f1] sm:flex"><Icon name="bell" className="h-[17px] w-[17px]" /><span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#078344]" /></button>
+            <button type="button" onClick={() => void openNotifications()} aria-label="Thông báo" className="relative hidden h-8 w-8 items-center justify-center rounded-lg text-[#555] hover:bg-[#f1f1f1] sm:flex"><Icon name="bell" className="h-[17px] w-[17px]" />{notifications.some((item) => !item.is_read) && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#078344]" />}</button>
             <button type="button" onClick={() => setDarkMode((value) => !value)} aria-label={darkMode ? 'Tắt chế độ dịu mắt' : 'Bật chế độ dịu mắt'} className="hidden h-8 w-8 items-center justify-center rounded-lg text-[#555] hover:bg-[#f1f1f1] sm:flex"><Icon name="moon" className="h-[17px] w-[17px]" /></button>
             <div className="hidden h-8 w-px bg-[#e6e6e6] sm:block" />
-            <button type="button" onClick={() => router.push('/teacher/profile')} className="flex items-center gap-2 rounded-2xl border border-[#e3e3e3] bg-white py-1 pl-2 pr-2.5 text-left hover:bg-[#fafafa]">
+            <button type="button" onClick={() => router.push(adminMode ? '/admin' : '/teacher/profile')} className="flex items-center gap-2 rounded-2xl border border-[#e3e3e3] bg-white py-1 pl-2 pr-2.5 text-left hover:bg-[#fafafa]">
               <span className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[#c9c4ff] bg-[#f0efff] text-[12px] font-bold text-[#3d35ae]">{initials}<i className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-white bg-[#09854e]" /></span>
-              <span className="hidden sm:block"><span className="block max-w-[150px] truncate text-[10px] font-semibold">{titleAndName}</span><span className="block max-w-[150px] truncate text-[9px] text-[#666]">Giảng viên • {profile.faculty || 'Khoa'}</span></span>
+              <span className="hidden sm:block"><span className="block max-w-[150px] truncate text-[10px] font-semibold">{titleAndName}</span><span className="block max-w-[150px] truncate text-[9px] text-[#666]">{adminMode ? 'Quản trị viên' : `Giảng viên • ${profile.faculty || 'Khoa'}`}</span></span>
               <span className="hidden text-[15px] leading-none text-[#777] sm:inline">⋮</span>
             </button>
             <button type="button" onClick={handleSignOut} disabled={signingOut} aria-label="Đăng xuất" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dedede] text-[#555] hover:bg-[#f4f4f4] disabled:opacity-60 md:hidden"><Icon name="logout" className="h-4 w-4" /></button>
@@ -222,67 +238,68 @@ export default function TeacherDashboard() {
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#dedede] pb-3">
             <div>
               <h1 className="text-[23px] font-bold tracking-tight sm:text-[28px]">Xin chào, {titleAndName}! 🎓</h1>
-              <p className="mt-1 text-[12px] text-[#5f6063]">Tổng hợp tình hình các lớp khảo thí âm học và các bài thi cần thẩm định điểm hôm nay.</p>
-              <span className="mt-2 inline-flex rounded-full border border-[#eadcae] bg-[#fff9e9] px-2 py-0.5 text-[8px] font-semibold text-[#81621c]">DỮ LIỆU DASHBOARD MINH HỌA</span>
+              <p className="mt-1 text-[12px] text-[#5f6063]">Tổng quan các lớp học và công cụ quản lý bài tập.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Link href="/teacher/profile" className="flex h-10 items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-100"><Icon name="users" className="h-4 w-4" />Hồ sơ cá nhân</Link>
+              {adminMode
+                ? <Link href="/teacher/classes" className="flex h-10 items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-100"><Icon name="classes" className="h-4 w-4" />Quản lý lớp &amp; bài tập</Link>
+                : <Link href="/teacher/profile" className="flex h-10 items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-100"><Icon name="users" className="h-4 w-4" />Hồ sơ cá nhân</Link>}
               <button type="button" onClick={() => setActiveDialog('report')} className="flex h-10 items-center gap-2 rounded-full border border-[#d1d1d1] bg-white px-4 text-[11px] font-medium hover:bg-[#f6f6f6]"><Icon name="download" className="h-4 w-4" />Xuất báo cáo tổng hợp</button>
             </div>
           </div>
 
           {errorMessage && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">{errorMessage}</p>}
 
-          <section aria-label="Thống kê dashboard demo" className="mt-6 grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-4">
-            <MetricCard title="Tổng số sinh viên" value="186" icon="users" iconStyle="gray" />
-            <MetricCard title="Bài thi chờ thẩm định" value="0" note="bài nộp mới" icon="checkCircle" iconStyle="green" footer="Tất cả bài thi đã được xử lý" green />
-            <MetricCard title="Đồng thuận AI - Giảng viên" value="97.2%" icon="sparkles" iconStyle="purple" footer="Độ tương thích Rubric cao" green delta="+0.8%" />
-            <MetricCard title="Điểm trung bình khóa" value="8.15" icon="chart" iconStyle="gray" suffix="/ 10.0" />
+          <section aria-label="Thống kê lớp học" className="mt-6 grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-4">
+            <MetricCard title="Lớp đang hoạt động" value={String(classes.filter((item) => item.status === 'active').length)} icon="users" iconStyle="gray" />
+            <MetricCard title="Yêu cầu chờ duyệt" value={String(classes.filter((item) => item.status === 'pending').length)} icon="checkCircle" iconStyle="green" />
+            <MetricCard title="Bài nộp cần chấm" value="—" note="chưa tích hợp" icon="sparkles" iconStyle="purple" />
+            <MetricCard title="Điểm trung bình" value="—" suffix="chưa có dữ liệu" icon="chart" iconStyle="gray" />
           </section>
 
           <div className="mt-6 grid items-start gap-6 min-[1100px]:grid-cols-[minmax(0,1.42fr)_minmax(320px,1fr)]">
             <div className="space-y-6">
               <section className="rounded-2xl border border-[#e1e1e1] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div><h2 className="text-[17px] font-bold">Bài thi vấn đáp cần chấm điểm</h2><p className="mt-1 text-[11px] text-[#666]">Các bài phát âm được AI chấm sơ bộ, chờ giảng viên xác thực và ký số.</p></div>
-                  <span className="flex items-center gap-1.5 rounded-lg border border-[#8ee0b6] bg-[#effaf4] px-3 py-2 text-[10px] font-semibold text-[#087b48]"><Icon name="checkCircle" className="h-4 w-4" />0 bài tồn đọng</span>
+                  <div><h2 className="text-[17px] font-bold">Bài nộp cần chấm điểm</h2><p className="mt-1 text-[11px] text-[#666]">Luồng nộp bài và chấm điểm đang được hoàn thiện.</p></div>
+                  <span className="flex items-center gap-1.5 rounded-lg border border-[#dedede] bg-[#fafafa] px-3 py-2 text-[10px] font-semibold text-[#666]">Chưa tích hợp</span>
                 </div>
                 <div className="mt-5 flex min-h-[330px] flex-col items-center justify-center rounded-xl border border-dashed border-[#d9d9d9] bg-[#fdfdfd] px-5 py-8 text-center">
                   <span className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-[#a5e8c5] bg-[#eafaf2] text-[#087b48]"><Icon name="wave" className="h-9 w-9" /><span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#087b48] text-white"><Icon name="checkCircle" className="h-4 w-4" /></span></span>
-                  <h3 className="mt-5 text-[15px] font-bold">Không có bài thi nào đang chờ thẩm định</h3>
-                  <p className="mt-2 max-w-[520px] text-[11px] leading-relaxed text-[#666]">Tất cả bài thi vấn đáp âm học từ các lớp học phần KTPM-K20 và CS102 đã được giảng viên thẩm định và ký duyệt số PKI HSM thành công.</p>
+                  <h3 className="mt-5 text-[15px] font-bold">Chưa có dữ liệu bài nộp</h3>
+                  <p className="mt-2 max-w-[520px] text-[11px] leading-relaxed text-[#666]">Tính năng ghi âm, AI phân tích và chấm điểm sẽ được bổ sung sau.</p>
                   <div className="mt-5 flex flex-wrap justify-center gap-2.5">
-                    <button type="button" onClick={() => router.push('/teacher/assignments/create')} className="flex h-9 items-center gap-2 rounded-full bg-[#4f46e5] px-4 text-[10px] font-semibold text-white hover:bg-indigo-700 shadow-sm"><Icon name="plus" className="h-4 w-4" />Tạo đợt khảo thí mới</button>
-                    <button type="button" onClick={() => router.push('/teacher/evaluations/CS102-MID-2024-03')} className="flex h-9 items-center gap-2 rounded-full bg-[#090909] px-4 text-[10px] font-semibold text-white hover:bg-[#333] shadow-sm"><Icon name="wave" className="h-4 w-4 text-indigo-400" />Vào thẩm định bài thi mẫu (CS102 - Trần Minh Đức)</button>
-                    <button type="button" onClick={() => setActiveDialog('recordings')} className="flex h-9 items-center gap-2 rounded-full border border-[#d0d0d0] bg-white px-4 text-[10px] font-medium hover:bg-[#f5f5f5]"><Icon name="folder" className="h-4 w-4" />Xem kho lưu trữ bản ghi âm</button>
+                    <button type="button" onClick={() => router.push('/teacher/assignments/create')} className="flex h-9 items-center gap-2 rounded-full bg-[#4f46e5] px-4 text-[10px] font-semibold text-white hover:bg-indigo-700 shadow-sm"><Icon name="plus" className="h-4 w-4" />Tạo bài tập mới</button>
                   </div>
                 </div>
               </section>
 
               <section className="rounded-2xl border border-[#e1e1e1] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div><h2 className="text-[17px] font-bold">Lớp học đang phụ trách</h2><p className="mt-1 text-[11px] text-[#666]">Tiến độ hoàn thành ca thi vấn đáp theo từng học phần.</p></div>
+                  <div><h2 className="text-[17px] font-bold">Lớp học đang phụ trách</h2><p className="mt-1 text-[11px] text-[#666]">Danh sách lớp học được tải từ hệ thống.</p></div>
                   <button type="button" onClick={() => router.push('/teacher/classes')} className="flex items-center gap-1 text-[10px] font-medium hover:underline">Xem tất cả lớp <span aria-hidden="true">→</span></button>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {demoClasses.map((classItem) => (
+                  {classes.filter((item) => item.status === 'active').map((classItem) => (
                     <article
-                      key={classItem.code}
-                      onClick={() => router.push(`/teacher/classes/${classItem.code}`)}
+                      key={classItem.id}
+                      onClick={() => router.push(`/teacher/classes/${classItem.id}`)}
                       className="cursor-pointer rounded-xl border border-[#dedede] bg-[#fdfdfd] p-4 transition hover:border-indigo-300 hover:shadow-sm"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2 text-[9px]">
-                        <span className="rounded border border-[#d6d1ff] bg-[#f2f0ff] px-2 py-1 font-semibold text-[#4942b4]">Mã: {classItem.code}</span>
-                        <span className="flex items-center gap-1 text-[#126d43]"><i className="h-1.5 w-1.5 rounded-full bg-[#078344]" />{classItem.badge}</span>
+                        <span className="rounded border border-[#d6d1ff] bg-[#f2f0ff] px-2 py-1 font-semibold text-[#4942b4]">Mã: {classItem.class_code}</span>
+                        <span className="flex items-center gap-1 text-[#126d43]"><i className="h-1.5 w-1.5 rounded-full bg-[#078344]" />Đang hoạt động</span>
                       </div>
-                      <h3 className="mt-3 text-[15px] font-bold leading-snug">{classItem.title}</h3>
-                      <p className="mt-1.5 min-h-[32px] text-[10px] leading-relaxed text-[#666]">{classItem.description}</p>
+                      <h3 className="mt-3 text-[15px] font-bold leading-snug">{classItem.class_name}</h3>
+                      <p className="mt-1.5 min-h-[32px] text-[10px] leading-relaxed text-[#666]">{classItem.description || 'Chưa có mô tả.'}</p>
                       <div className="mt-3 border-t border-[#e5e5e5] pt-3">
-                        <div className="flex justify-between text-[10px]"><span className="text-[#666]">Tiến độ chấm:</span><b className="font-semibold text-[#181818]">{classItem.progressLabel}</b></div>
-                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#e8e8e8]"><div className="h-full rounded-full bg-[#111]" style={{ width: `${classItem.progress}%` }} /></div>
+                        <span className="text-[10px] text-[#666]">Mã lớp: {classItem.class_code}</span>
                       </div>
                     </article>
                   ))}
+                  {classes.filter((item) => item.status === 'active').length === 0 && (
+                    <p className="rounded-xl border border-dashed border-[#d9d9d9] p-6 text-center text-xs text-[#666]">Chưa có lớp học đang hoạt động.</p>
+                  )}
                 </div>
               </section>
             </div>
@@ -291,28 +308,14 @@ export default function TeacherDashboard() {
               <section className="rounded-2xl border border-[#e1e1e1] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
                 <h2 className="text-[15px] font-bold">Thao tác quản trị ca thi</h2>
                 <div className="mt-3 space-y-2">
-                  <button type="button" onClick={() => router.push('/teacher/assignments/create')} className="flex h-9 w-full items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50/60 px-3.5 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-100 transition"><span className="flex items-center gap-2"><Icon name="plus" className="h-4 w-4 text-indigo-600" />Tạo đợt khảo thí âm học mới</span><Icon name="chevron" className="h-3.5 w-3.5 text-indigo-400" /></button>
-                  <button type="button" onClick={() => router.push('/teacher/evaluations/CS102-MID-2024-03')} className="flex h-9 w-full items-center justify-between rounded-xl border border-[#d8d8d8] bg-white px-3.5 text-[11px] font-medium text-[#222] hover:bg-[#f6f6f6]"><span className="flex items-center gap-2"><Icon name="wave" className="h-4 w-4 text-indigo-600" />Thẩm định bài thi mẫu</span><Icon name="chevron" className="h-3.5 w-3.5 text-[#999]" /></button>
-                  <button type="button" onClick={() => setActiveDialog('recordings')} className="flex h-9 w-full items-center justify-between rounded-xl border border-[#d8d8d8] bg-white px-3.5 text-[11px] font-medium text-[#222] hover:bg-[#f6f6f6]"><span className="flex items-center gap-2"><Icon name="folder" className="h-4 w-4" />Kho lưu trữ bản ghi âm FLAC</span><Icon name="chevron" className="h-3.5 w-3.5 text-[#999]" /></button>
+                  <button type="button" onClick={() => router.push('/teacher/assignments/create')} className="flex h-9 w-full items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50/60 px-3.5 text-[11px] font-semibold text-indigo-900 hover:bg-indigo-100 transition"><span className="flex items-center gap-2"><Icon name="plus" className="h-4 w-4 text-indigo-600" />Tạo bài tập mới</span><Icon name="chevron" className="h-3.5 w-3.5 text-indigo-400" /></button>
                   <button type="button" onClick={() => setActiveDialog('exportScore')} className="flex h-9 w-full items-center justify-between rounded-xl border border-[#d8d8d8] bg-white px-3.5 text-[11px] font-medium text-[#222] hover:bg-[#f6f6f6]"><span className="flex items-center gap-2"><Icon name="download" className="h-4 w-4" />Xuất bảng điểm LMS / Moodle</span><Icon name="chevron" className="h-3.5 w-3.5 text-[#999]" /></button>
                 </div>
               </section>
 
               <section className="rounded-2xl border border-[#e1e1e1] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-[15px] font-bold">Trạng thái hạ tầng Khảo thí AI</h2>
-                  <span className="flex items-center gap-1 text-[9px] font-semibold text-[#098347]"><i className="h-1.5 w-1.5 rounded-full bg-[#078344]" />Hoạt động ổn định</span>
-                </div>
-                <div className="mt-4 space-y-3 text-[10px]">
-                  <div className="flex items-center justify-between rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-2.5">
-                    <span className="flex items-center gap-2"><Icon name="sound" className="h-3.5 w-3.5 text-[#555]" />Khử ồn Whisper ASR Realtime</span>
-                    <b className="text-[#078344]">Độ trễ: 12ms</b>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-2.5">
-                    <span className="flex items-center gap-2"><Icon name="sparkles" className="h-3.5 w-3.5 text-[#555]" />Mô hình Rubric LLM Đánh giá</span>
-                    <b className="text-[#078344]">Sẵn sàng (v2.4)</b>
-                  </div>
-                </div>
+                <h2 className="text-[15px] font-bold">Tính năng đang tạm hoãn</h2>
+                <p className="mt-3 text-[11px] leading-relaxed text-[#666]">Ghi âm, Speech-to-Text và chấm điểm AI chưa được bật.</p>
               </section>
             </aside>
           </div>
@@ -323,10 +326,31 @@ export default function TeacherDashboard() {
         <div role="presentation" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs" onMouseDown={(e) => { if (e.target === e.currentTarget) setActiveDialog(null); }}>
           <section role="dialog" aria-modal="true" aria-labelledby="teacher-dialog-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between border-b pb-3">
-              <h2 id="teacher-dialog-title" className="text-base font-bold text-[#1f2024]">Thông báo hệ thống</h2>
+              <h2 id="teacher-dialog-title" className="text-base font-bold text-[#1f2024]">
+                {activeDialog === 'notifications' ? 'Thông báo' : 'Thông báo hệ thống'}
+              </h2>
               <button type="button" onClick={() => setActiveDialog(null)} className="rounded-lg p-1 text-[#666] hover:bg-gray-100"><Icon name="close" /></button>
             </div>
-            <p className="mt-4 text-xs leading-relaxed text-[#555]">Tính năng <b>{activeDialog}</b> đang ở chế độ xem trước dữ liệu mẫu. Dữ liệu thực sẽ được kết nối theo lịch thi của phòng đào tạo.</p>
+            {activeDialog === 'notifications' ? (
+              <div className="mt-4 max-h-[60vh] space-y-3 overflow-y-auto">
+                {notificationsLoading && <p className="text-sm text-gray-500">Đang tải thông báo...</p>}
+                {notificationsError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{notificationsError}</p>}
+                {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">Bạn chưa có thông báo nào.</p>
+                )}
+                {notifications.map((item) => (
+                  <article key={item.id} className={`rounded-xl border p-3 ${item.is_read ? 'border-gray-200 bg-white' : 'border-indigo-200 bg-indigo-50/50'}`}>
+                    <h3 className="text-sm font-semibold text-gray-900">{item.title}</h3>
+                    <p className="mt-1 text-sm leading-5 text-gray-600">{item.message}</p>
+                    <time className="mt-2 block text-xs text-gray-400" dateTime={item.created_at}>
+                      {new Date(item.created_at).toLocaleString('vi-VN')}
+                    </time>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-xs leading-relaxed text-[#555]">Tính năng <b>{activeDialog}</b> chưa được kết nối với dữ liệu thật.</p>
+            )}
             <div className="mt-5 flex justify-end">
               <button type="button" onClick={() => setActiveDialog(null)} className="rounded-lg bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800">Đã hiểu</button>
             </div>

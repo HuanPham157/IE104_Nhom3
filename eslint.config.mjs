@@ -9,6 +9,8 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "**/.next/**",
+    "IE104_Nhom3/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

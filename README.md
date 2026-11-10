@@ -28,26 +28,45 @@
 
 ### Bước 2: Tạo Bảng và Thiết lập Row Level Security (RLS)
 1. Trong Dashboard Supabase, mở **SQL Editor** → **New query**.
-2. Sao chép toàn bộ nội dung từ tệp [`supabase/schema.sql`](file:///d:/HocTap/Nam%203/HK1/IE104/viec-hoc/supabase/schema.sql) trong dự án và bấm **Run**.
-3. Tạo một query mới, sao chép nội dung [`supabase/signup.sql`](./supabase/signup.sql) và bấm **Run**. Nếu bảng `tasks` đã được tạo trước đó thì chỉ cần chạy bước này.
-4. Kết quả: Bảng `public.tasks` được bảo vệ bằng RLS; bảng `public.profiles` lưu vai trò, mã số trường, họ tên và khoa. Trigger tự tạo hồ sơ khi đăng ký, còn RLS chỉ cho phép người dùng đọc hồ sơ của chính mình.
-5. Đăng ký công khai chỉ tạo tài khoản sinh viên. Để cấp tài khoản giảng viên, quản trị viên tạo người dùng trong Supabase Auth, lấy UUID của tài khoản rồi chạy câu lệnh sau trong SQL Editor:
+2. Chạy lần lượt toàn bộ nội dung các tệp sau, mỗi tệp trong một query riêng:
+   - [`supabase/ie104_supabase_schema.sql`](./supabase/ie104_supabase_schema.sql)
+   - [`supabase/oralcheck_backend.sql`](./supabase/oralcheck_backend.sql)
+   - [`supabase/signup.sql`](./supabase/signup.sql)
+3. Các script tạo schema lớp học/bài tập, RLS và RPC workflow; `signup.sql` đồng bộ hồ sơ cũ sang `public.users` mà không ghi đè trạng thái tài khoản hiện có. Khi cập nhật mã SQL, chạy lại script tương ứng trong SQL Editor.
+   - Nếu nâng cấp từ phiên bản backend trước, chạy lại `oralcheck_backend.sql` sau khi cập nhật để cài các RPC phân quyền admin, tạo lớp/bài tập, xóa sinh viên khỏi lớp, chặn truy cập roster/bài tập của lớp chưa duyệt và hiển thị tên giảng viên an toàn cho thành viên lớp. Khi từ chối yêu cầu mở lớp, bản ghi lớp sẽ được xóa khỏi danh sách; yêu cầu và lý do vẫn được lưu trong `approval_requests`, đồng thời giảng viên nhận thông báo trong ứng dụng.
+4. Đăng ký công khai chỉ tạo tài khoản sinh viên. Để cấp tài khoản giảng viên, quản trị viên tạo người dùng trong Supabase Auth, lấy UUID của tài khoản rồi chạy câu lệnh sau trong SQL Editor:
 
    ```sql
+   insert into public.users (id, full_name, role, account_status)
+   values ('UUID_CUA_TAI_KHOAN', 'Họ tên giảng viên', 'lecturer', 'active')
+   on conflict (id) do update
+     set full_name = excluded.full_name, role = 'lecturer', account_status = 'active';
+
+   insert into public.lecturer_profiles (user_id)
+   values ('UUID_CUA_TAI_KHOAN')
+   on conflict (user_id) do nothing;
+
    insert into public.profiles (id, role, institutional_id, full_name, faculty)
    values ('UUID_CUA_TAI_KHOAN', 'teacher', 'MSGV', 'Họ tên giảng viên', 'Tên khoa')
-   on conflict (id) do update set role = excluded.role;
+   on conflict (id) do update
+     set role = 'teacher', full_name = excluded.full_name,
+         institutional_id = excluded.institutional_id, faculty = excluded.faculty;
    ```
 
-   Chỉ quản trị viên được chạy thao tác này. Không cấp quyền giảng viên từ dữ liệu form hoặc `user_metadata` do người dùng tự gửi. Các hồ sơ giảng viên đã tồn tại trước thay đổi cần được quản trị viên rà soát và xác minh.
+   Chỉ quản trị viên được chạy thao tác này. `public.users.role` là nguồn phân quyền chuẩn (`student`, `lecturer`, `admin`); `public.profiles` chỉ còn để tương thích với dữ liệu đăng ký cũ, ứng dụng đọc role từ `public.users`. Không cấp quyền giảng viên từ `user_metadata` do người dùng tự gửi.
 
 #### Tạo hồ sơ cho tài khoản tạo thủ công
 
-- Khi sinh viên đăng ký qua form `/signup` của website, không cần chạy SQL thêm hồ sơ. Form gửi MSSV, họ tên và khoa; trigger `on_auth_user_created` trong `signup.sql` tự tạo dòng `public.profiles` với role `student`.
-- Điều này chỉ hoạt động sau khi đã chạy phiên bản `supabase/signup.sql` hiện tại trên đúng Supabase project mà website đang kết nối.
+- Khi sinh viên đăng ký qua form `/signup`, các trigger tạo dòng `public.profiles`, `public.users` và `public.student_profiles`. Chạy đủ ba SQL script theo đúng thứ tự ở trên trước khi đăng ký.
 - Nếu tạo user thủ công trong **Authentication → Users**, Supabase Auth tạo tài khoản nhưng không tự tạo hồ sơ ứng dụng nếu không có metadata cần thiết. Quản trị viên cần thêm hồ sơ bằng UUID của user. Ví dụ cho sinh viên:
 
   ```sql
+  insert into public.users (id, full_name, role, account_status)
+  values ('UUID_CUA_USER', 'Họ tên sinh viên', 'student', 'active');
+
+  insert into public.student_profiles (user_id, student_code, department)
+  values ('UUID_CUA_USER', 'MSSV_MOI', 'Tên khoa');
+
   insert into public.profiles (id, role, institutional_id, full_name, faculty)
   values ('UUID_CUA_USER', 'student', 'MSSV_MOI', 'Họ tên sinh viên', 'Tên khoa');
   ```
@@ -57,12 +76,35 @@
 #### Phân biệt quản trị viên Supabase và quản trị viên ứng dụng
 
 - **Quản trị viên Supabase project/organization:** Mời thành viên trong phần **Access Control / Team** của Supabase và chỉ cấp quyền cần thiết. Đây là quyền quản lý hạ tầng Supabase, không phải role đăng nhập của website.
-- **Quản trị viên trong ứng dụng:** Hiện ứng dụng chưa hỗ trợ role `admin`. Bảng `public.profiles` chỉ chấp nhận `student` và `teacher`; chưa có dashboard hay chính sách phân quyền dành cho quản trị viên ứng dụng. Không tự gán `admin` vào `profiles` vì database sẽ từ chối và ứng dụng chưa xử lý role này.
-- **Cấp role giảng viên:** Thực hiện bằng tài khoản quản trị database như hướng dẫn ở trên. Người dùng công khai không thể tự chọn role giảng viên khi đăng ký.
-- **Dashboard giảng viên (`/teacher`):** Có xác minh role, hiển thị hồ sơ thật và đăng xuất. Bố cục theo `design/stitch/dashboard-teacher.png`; số liệu, lớp, bài thi, AI và HSM đang là dữ liệu minh họa, có nhãn riêng. Các nút nghiệp vụ chưa kết nối chỉ mở thông tin xem trước; schema hiện chưa có bảng cho các nghiệp vụ này.
-- **Lớp học giảng viên (`/teacher/classes`):** Giao diện theo `design/stitch/class-teacher.png`; hồ sơ giảng viên lấy từ Supabase, danh sách lớp và các chỉ số đang là dữ liệu minh họa. Mục Lớp học & Hội đồng trên dashboard mở trang này.
-- **Dashboard sinh viên (`/student`):** Giao diện theo `design/stitch/dashboard-student.png`; tên/MSSV lấy từ hồ sơ, còn điểm, lịch, bài thi và lớp đang là dữ liệu minh họa. Đăng nhập/đăng ký sinh viên mở dashboard này; khu vực Bài tập oral và CRUD thật vẫn có tại `/tasks`.
-- **Dashboard sinh viên (`/tasks`):** Phần danh sách bài thi Oral hiện dùng dữ liệu demo để dựng giao diện theo `design/stitch/task-student.png`; nhãn `DỮ LIỆU DEMO` phân biệt rõ với dữ liệu thật. Deadline, môn học, rubric, điểm AI và lịch thi demo không được lưu vào Supabase. Khu vực **Công việc cá nhân** bên dưới vẫn dùng CRUD thật với `public.tasks`.
+- **Quản trị viên trong ứng dụng:** Role chuẩn được lưu ở `public.users`; tạo user trong Supabase Auth rồi thêm `public.users.role = 'admin'`. Không gán `admin` vào `public.profiles`.
+- **Tạo tài khoản đăng nhập admin:** Trong Supabase Dashboard → **Authentication → Users → Add user**, tạo user bằng email và mật khẩu do bạn quản lý (xác nhận email nếu project yêu cầu), rồi sao chép UUID. Trong **SQL Editor**, chạy lệnh dưới đây sau khi thay UUID và họ tên; sau đó đăng nhập tại `/login`, ứng dụng sẽ chuyển role admin tới `/admin`.
+
+  ```sql
+  insert into public.users (id, full_name, role, account_status)
+  values ('UUID_TAI_KHOAN_AUTH', 'Họ tên quản trị viên', 'admin', 'active')
+  on conflict (id) do update
+    set full_name = excluded.full_name,
+        role = 'admin',
+        account_status = 'active';
+  ```
+
+  Chỉ người có quyền quản trị Supabase mới được tạo/cấp role này. Không gửi mật khẩu qua chat và không gán role `admin` vào `user_metadata` hoặc `public.profiles`.
+- **Dashboard giảng viên (`/teacher/classes`):** Giảng viên tạo lớp sẽ gửi yêu cầu chờ admin duyệt. Dropdown khoa của form tạo lớp được cấu hình trong `src/components/TeacherClasses.tsx`. Danh sách lớp, sinh viên tham gia và bài tập lấy từ API/Supabase. Tạo bài tập chỉ bật cho lớp đang hoạt động.
+- **Dashboard quản trị (`/admin`):** Admin có thể mở `/admin/classes` để xem lớp, mở danh sách lớp/sinh viên/bài tập, tạo lớp được kích hoạt ngay và soạn bài tập. Lớp có sinh viên hoặc bài tập khi bị xóa sẽ được lưu trữ để giữ nguyên dữ liệu liên quan.
+- **Dashboard sinh viên (`/student/classes`):** Sinh viên tham gia lớp bằng mã lớp và xem các bài tập đã được công bố. Ghi âm, camera, chuyển giọng nói thành văn bản và AI chấm điểm hiện chưa bật.
+- **Xem đề bài (`/student/assignments/[id]`):** Sinh viên xem hướng dẫn, hạn nộp và câu hỏi; đáp án tham khảo/rubric không được trả về cho role sinh viên.
+- **Soạn bài tập (`/teacher/assignments/create`):** Giảng viên và admin chọn lớp đang hoạt động, nhập hướng dẫn, hạn nộp, câu hỏi, đáp án tham khảo và tiêu chí chấm; lưu nháp để tiếp tục chỉnh sửa hoặc công bố cho sinh viên.
+- **Xóa bài tập:** Giảng viên có thể xóa bài tập trong chi tiết lớp. Bài tập chưa có bài nộp sẽ bị xóa; bài đã có bài nộp sẽ được lưu trữ để bảo toàn kết quả.
+- **Yêu cầu hủy lớp:** Giảng viên gửi yêu cầu từ chi tiết lớp đang hoạt động. Lớp chỉ được lưu trữ sau khi quản trị viên phê duyệt.
+- **Xóa sinh viên khỏi lớp:** Giảng viên phụ trách lớp và admin có thể gỡ sinh viên khỏi danh sách lớp. Tài khoản và bài nộp được giữ lại; sinh viên có thể tham gia lại bằng mã lớp nếu lớp còn hoạt động.
+- **Bài tập cá nhân (`/tasks`):** CRUD cá nhân tiếp tục dùng `public.tasks`.
+
+### Ghi chú UX và phần chưa hoàn thiện
+
+- Tạo lớp hiện gom mã môn, khoa, phòng và lịch vào trường `classes.description`; hiện chưa có cột riêng nên việc lọc/sắp xếp theo từng thông tin lớp còn hạn chế.
+- Thống kê số sinh viên, tiến độ nộp và điểm chưa có nguồn dữ liệu hiển thị trong dashboard; giao diện không nên xem số rỗng là tiến độ bằng 0. Thẻ giảng viên hiện hiển thị số bài tập thực tế; điểm trung bình và quy trình khảo thí vẫn chưa bật.
+- Sinh viên hiện chỉ xem đề và hạn nộp. Luồng nộp bài, chấm điểm và xem kết quả chưa bật; các mục ghi âm, camera, Speech-to-Text và AI được đánh dấu tạm hoãn.
+- Quản trị viên duyệt lớp và gửi thông báo được hỗ trợ; quản lý tài khoản và thống kê AI chưa triển khai.
 
 ### Bước 3: Cấu hình xác nhận email và tài khoản thử nghiệm
 1. Trong **Authentication** → **Providers** → **Email**, bật nhà cung cấp Email. Nếu bật xác nhận email, cấu hình SMTP để gửi thư xác nhận; tài khoản chỉ đăng nhập được sau khi xác nhận.

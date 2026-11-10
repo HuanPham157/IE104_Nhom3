@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
 import { getCachedProfile, getCachedProfileForRole } from '@/lib/profile-cache';
 import StudentSidebar from '@/components/StudentSidebar';
+import PageLoadingScreen from '@/components/PageLoadingScreen';
 
 type StudentPage = 'classes' | 'recorder';
 
@@ -54,7 +55,7 @@ export default function StudentPageShell({ currentPage, breadcrumb, children }: 
           });
         }
       } catch {
-        if (active) setErrorMessage('Không thể xác minh tài khoản. Vui lòng kiểm tra kết nối và thử lại.');
+        if (active) setErrorMessage('Không thể tải hồ sơ. Vui lòng kiểm tra kết nối và thử lại.');
       } finally {
         if (active) setChecking(false);
       }
@@ -85,7 +86,7 @@ export default function StudentPageShell({ currentPage, breadcrumb, children }: 
   }
 
   if (checking) {
-    return <main className="flex min-h-screen items-center justify-center bg-[#f8f8f8] text-sm text-gray-600">Đang xác minh tài khoản sinh viên...</main>;
+    return <PageLoadingScreen title="Đang tải hồ sơ sinh viên" description="Đang chuẩn bị không gian học tập của bạn." />;
   }
   if (errorMessage && !profile) {
     return (

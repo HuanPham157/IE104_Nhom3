@@ -56,7 +56,7 @@ function Signup() {
           setErrorMessage('Email này đã được đăng ký. Hãy đăng nhập hoặc sử dụng email khác.');
         } else if (error.message.includes('Database error saving new user')) {
           setErrorMessage(
-            'Không thể tạo hồ sơ. Hãy kiểm tra mã số đã được sử dụng chưa và xác nhận quản trị viên đã chạy migration Supabase.',
+            'Không thể tạo hồ sơ. Hãy kiểm tra mã số đã được sử dụng chưa và thử lại sau.',
           );
         } else {
           setErrorMessage(error.message);
@@ -71,14 +71,14 @@ function Signup() {
       }
 
       setSuccessMessage(
-        'Nếu địa chỉ email này có thể đăng ký, Supabase sẽ gửi hướng dẫn xác nhận. Hãy kiểm tra hộp thư đến và thư mục spam.',
+        'Nếu địa chỉ email này có thể đăng ký, chúng tôi sẽ gửi hướng dẫn xác nhận. Hãy kiểm tra hộp thư đến và thư mục spam.',
       );
       form.reset();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
-          ? `Không thể kết nối Supabase: ${error.message}`
-          : 'Không thể kết nối Supabase. Vui lòng kiểm tra mạng và thử lại.',
+          ? `Không thể kết nối dịch vụ: ${error.message}`
+          : 'Không thể kết nối dịch vụ đăng ký. Vui lòng kiểm tra mạng và thử lại.',
       );
     } finally {
       setLoading(false);
@@ -138,92 +138,24 @@ function Signup() {
         <section className="w-full max-w-[390px] md:translate-y-2 md:pr-5">
           <div className="mb-5">
             <h1 className="max-w-[390px] text-[29px] font-bold leading-[1.05] tracking-[-0.045em] sm:text-[32px]">
-              Nền tảng học tập &amp; đánh giá vấn đáp thông minh bằng AI.
+              Tạo tài khoản sinh viên.
             </h1>
             <p className="mt-1 text-[12px] leading-[18px] text-[#626262]">
-              Hệ thống phân tích phổ âm học thời gian thực với độ trễ thấp &lt;15s.
-              Kết hợp Acoustic-LLM chấm điểm tự động đa chiều theo khung năng lực
-              chuẩn CEFR và Rubric đào tạo quốc gia.
+              Tạo tài khoản để tham gia lớp học và xem bài tập đã được giảng viên công bố.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[#e5e5e5] bg-white px-3.5 py-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#6b6cff]" />
-                <h2 className="whitespace-nowrap text-[9px] font-semibold">
-                  Kiểm tra giọng nói trước khi vào phòng thi
-                </h2>
-              </div>
-              <span className="whitespace-nowrap rounded-full border border-[#b8e4cb] bg-[#e8f7ed] px-1.5 py-0.5 text-[7px] font-semibold text-[#087b48]">
-                Chuẩn âm phòng lab 48kHz
-              </span>
-            </div>
-            <div className="mt-2.5 flex items-center justify-between border-t border-[#ededed] pt-2.5 text-[8px] text-[#777]">
-              <span>Thử âm phổ thoại (Speech Spectral Feed):</span>
-              <span className="text-[9px] font-semibold text-[#222]">-18.4 dBFS (Tối ưu)</span>
-            </div>
-            <div
-              className="mt-1.5 flex h-[29px] items-center justify-center gap-[7px] rounded-lg bg-[#f3f3f3] px-3"
-              aria-label="Minh họa phổ âm thanh"
-            >
-              {[7, 12, 9, 15, 10, 18, 12, 8, 14, 6, 11, 17, 9, 13, 6, 10, 15, 8, 12, 5, 9, 14, 7, 11, 6, 13].map(
-                (height, index) => (
-                  <span
-                    key={index}
-                    className={`w-[2px] shrink-0 rounded-full ${
-                      index % 6 === 3 ? 'bg-[#6b6cff]' : 'bg-[#282828]'
-                    }`}
-                    style={{ height }}
-                  />
-                ),
-              )}
-            </div>
-            <div className="mt-2 flex items-center justify-between text-[8px] text-[#666]">
-              <span className="flex items-center gap-1">
-                <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3 w-3 text-[#087b48]" fill="none">
-                  <rect x="5.5" y="2.5" width="5" height="8" rx="2.5" stroke="currentColor" />
-                  <path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2M6 14h4" stroke="currentColor" strokeLinecap="round" />
-                </svg>
-                Microphone: Built-in Array (CoreAudio)
-              </span>
-              <button type="button" className="font-semibold text-[#333] underline underline-offset-2">
-                Chạy thử lại (5s)
-              </button>
-            </div>
+          <div className="rounded-2xl border border-[#e5e5e5] bg-white p-4">
+            <h2 className="text-xs font-semibold text-gray-900">Tính năng hiện tại</h2>
+            <ul className="mt-3 space-y-2 text-[11px] leading-5 text-gray-600">
+              <li>• Đăng nhập và phân quyền theo loại tài khoản.</li>
+              <li>• Tham gia lớp học bằng mã do giảng viên cung cấp.</li>
+              <li>• Xem bài tập đã được công bố trong lớp.</li>
+            </ul>
+            <p className="mt-4 border-t border-gray-100 pt-3 text-[10px] leading-4 text-amber-800">
+              Ghi âm, camera, chuyển giọng nói thành văn bản và AI chưa được bật.
+            </p>
           </div>
-
-          <div className="mt-4 grid grid-cols-3 divide-x divide-[#e4e4e4] border-t border-[#e4e4e4] py-3">
-            <div className="flex items-center gap-1.5 pr-2">
-              <span className="text-[14px] font-bold">50+</span>
-              <span className="text-[8px] leading-[10px] text-[#555]">Trường Đại học tin dùng</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2">
-              <span className="text-[14px] font-bold">150,000+</span>
-              <span className="text-[8px] leading-[10px] text-[#555]">Bài thi vấn đáp đã phân tích</span>
-            </div>
-            <div className="flex items-center gap-1.5 pl-2">
-              <span className="text-[14px] font-bold text-[#087b48]">99.4%</span>
-              <span className="text-[8px] leading-[10px] text-[#555]">Độ tương thích Rubric chuẩn</span>
-            </div>
-          </div>
-
-          <figure className="rounded-xl border border-[#e7e7e7] bg-[#f1f1f1] px-3 py-2.5">
-            <blockquote className="flex gap-2 text-[9px] italic leading-[14px] text-[#444]">
-              <span className="text-[15px] font-bold not-italic">“</span>
-              <span>
-                AIOralCheck giải quyết hoàn toàn nút thắt chấm thi vấn đáp quy mô
-                lớn. Sinh viên nhận phản hồi ngữ âm và cấu trúc luận điểm ngay sau
-                buổi thi mà không phải chờ đợi nhiều tuần.
-              </span>
-            </blockquote>
-            <figcaption className="mt-1 flex items-center justify-between pl-5 text-[8px]">
-              <span className="font-semibold">PGS. TS. Trần Minh Tuấn</span>
-              <span className="text-[7px] font-semibold text-[#555]">
-                TRƯỞNG BỘ MÔN CNPM - ĐH BÁCH KHOA
-              </span>
-            </figcaption>
-          </figure>
         </section>
 
         <section className="w-full md:pl-0">

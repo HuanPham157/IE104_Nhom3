@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 import TeacherPageShell, { type TeacherPageProfile } from '@/components/TeacherPageShell';
 
@@ -112,7 +112,7 @@ function PasswordSettings({ email }: { email: string }) {
     <form onSubmit={handleSubmit} className="rounded-xl border border-gray-200 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div><h3 className="text-[12px] font-semibold">Đổi mật khẩu tài khoản</h3><p className="mt-1 text-[10px] text-gray-500">Chọn mật khẩu dài ít nhất 10 ký tự.</p></div>
-        <span className="text-[9px] text-gray-500">Xác thực bảo mật qua Supabase</span>
+        <span className="text-[9px] text-gray-500">Tài khoản được bảo vệ an toàn</span>
       </div>
       <div className="mt-4 space-y-3">
         <label className="block"><span className="sr-only">Mật khẩu hiện tại</span><input aria-label="Mật khẩu hiện tại" type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Mật khẩu hiện tại" className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[11px] outline-none focus:border-gray-500" /></label>
@@ -131,121 +131,13 @@ function PasswordSettings({ email }: { email: string }) {
 }
 
 function AudioSettings() {
-  const [deviceId, setDeviceId] = useState('');
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [isTesting, setIsTesting] = useState(false);
-  const [level, setLevel] = useState(0);
-  const [errorMessage, setErrorMessage] = useState('');
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const frameRef = useRef<number | null>(null);
-
-  function stopTest() {
-    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
-    frameRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    const audioContext = audioContextRef.current;
-    audioContextRef.current = null;
-    if (audioContext && audioContext.state !== 'closed') void audioContext.close();
-    setIsTesting(false);
-    setLevel(0);
-  }
-
-  useEffect(() => () => {
-    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') void audioContextRef.current.close();
-  }, []);
-
-  async function startTest() {
-    setErrorMessage('');
-    if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
-      setErrorMessage('Trình duyệt này không hỗ trợ kiểm tra microphone. Hãy dùng trình duyệt hiện đại qua HTTPS.');
-      return;
-    }
-    stopTest();
-    try {
-      const audio = deviceId ? { deviceId: { exact: deviceId } } : true;
-      const stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
-      streamRef.current = stream;
-      const audioContext = new window.AudioContext();
-      audioContextRef.current = audioContext;
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 512;
-      source.connect(analyser);
-      const samples = new Uint8Array(analyser.fftSize);
-      setIsTesting(true);
-
-      const refreshLevel = () => {
-        analyser.getByteTimeDomainData(samples);
-        const rms = Math.sqrt(samples.reduce((sum, sample) => sum + (sample - 128) ** 2, 0) / samples.length) / 128;
-        const decibels = rms > 0 ? Math.max(-60, Math.round(20 * Math.log10(rms))) : -60;
-        setLevel(decibels);
-        frameRef.current = window.requestAnimationFrame(refreshLevel);
-      };
-      await audioContext.resume();
-      frameRef.current = window.requestAnimationFrame(refreshLevel);
-
-      const availableDevices = await navigator.mediaDevices.enumerateDevices();
-      setDevices(availableDevices.filter((device) => device.kind === 'audioinput'));
-      if (!deviceId && stream.getAudioTracks()[0]?.getSettings().deviceId) {
-        setDeviceId(stream.getAudioTracks()[0].getSettings().deviceId ?? '');
-      }
-    } catch (error) {
-      stopTest();
-      if (error instanceof DOMException && error.name === 'NotAllowedError') {
-        setErrorMessage('Quyền microphone chưa được cấp. Hãy cho phép truy cập trong cài đặt trình duyệt.');
-      } else if (error instanceof DOMException && error.name === 'NotFoundError') {
-        setErrorMessage('Không tìm thấy microphone. Hãy kết nối thiết bị rồi thử lại.');
-      } else if (error instanceof DOMException && error.name === 'NotReadableError') {
-        setErrorMessage('Microphone đang được ứng dụng khác sử dụng. Hãy đóng ứng dụng đó rồi thử lại.');
-      } else {
-        setErrorMessage('Không thể kiểm tra microphone. Vui lòng kiểm tra thiết bị và thử lại.');
-      }
-    }
-  }
-
-  const signalPercent = Math.max(0, Math.min(100, ((level + 60) / 60) * 100));
   return (
-    <section className="rounded-xl border border-gray-200 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h3 className="text-[12px] font-semibold">Tùy chọn Khảo thí &amp; Âm thanh phòng lab</h3><p className="mt-1 text-[10px] text-gray-500">Kiểm tra microphone thật trên thiết bị của bạn. Âm thanh chỉ được phân tích tại trình duyệt, không ghi hoặc tải lên.</p></div>
-        <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[9px] font-semibold text-indigo-800">AI DSP · Kiểm tra cục bộ</span>
-      </div>
-      <div className="mt-4 border-t border-gray-200 pt-4">
-        <label className="block text-[10px] font-semibold text-gray-600" htmlFor="teacher-audio-device">Thiết bị đầu vào mặc định (Input Audio Interface)</label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <select id="teacher-audio-device" aria-label="Thiết bị microphone" value={deviceId} onChange={(event) => setDeviceId(event.target.value)} disabled={isTesting} className="h-10 min-w-[220px] flex-1 rounded-lg border border-gray-300 bg-white px-3 text-[11px] disabled:bg-gray-100">
-            <option value="">Microphone mặc định</option>
-            {devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `Microphone ${index + 1}`}</option>)}
-          </select>
-          <button type="button" onClick={isTesting ? stopTest : () => void startTest()} className={`h-10 rounded-lg border px-4 text-[10px] font-medium ${isTesting ? 'border-red-200 bg-red-50 text-red-700' : 'border-gray-300 bg-gray-100 text-gray-800 hover:bg-gray-200'}`}>{isTesting ? 'Dừng kiểm tra' : 'Thử mic & Đo âm'}</button>
-        </div>
-        {errorMessage && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-[10px] text-red-700">{errorMessage}</p>}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <div><p className="text-[10px] font-semibold">Mức tín hiệu đầu vào: {isTesting ? `${level} dBFS` : 'Chưa kiểm tra'}</p><p className="mt-1 text-[9px] text-gray-500">{isTesting ? 'Mức âm thanh cập nhật trực tiếp từ microphone.' : 'Cấp quyền microphone để đo mức âm thanh.'}</p></div>
-          <div className="flex h-9 w-36 items-center gap-1 rounded-lg bg-white px-2" aria-label={isTesting ? `Mức tín hiệu ${level} dBFS` : 'Chưa đo mức tín hiệu'}>
-            {Array.from({ length: 16 }, (_, index) => <span key={index} className={`h-2 flex-1 rounded-full ${isTesting && index / 16 <= signalPercent / 100 ? index > 11 ? 'bg-red-500' : index > 7 ? 'bg-indigo-500' : 'bg-emerald-600' : 'bg-gray-200'}`} />)}
-            <span className="ml-1 text-[8px] text-gray-500">dBFS</span>
-          </div>
-        </div>
-      </div>
-      <div className="mt-4 border-t border-gray-200 pt-4">
-        <ToggleSetting title="Tự động bật khử nhiễu môi trường AI" description="Cấu hình giao diện cho hệ thống lọc tiếng ồn khi chấm thi trực tiếp." defaultChecked />
-      </div>
+    <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+      <h3 className="text-[12px] font-semibold text-amber-900">Thiết bị âm thanh và thông báo</h3>
+      <p className="mt-2 text-[10px] leading-5 text-amber-900">
+        Kiểm tra microphone, ghi âm, camera và xử lý giọng nói đang được tạm hoãn. Trang này không yêu cầu quyền truy cập thiết bị.
+      </p>
     </section>
-  );
-}
-
-function ToggleSetting({ title, description, defaultChecked = false }: { title: string; description: string; defaultChecked?: boolean }) {
-  const [enabled, setEnabled] = useState(defaultChecked);
-  return (
-    <label className="flex cursor-pointer items-start justify-between gap-4">
-      <span><span className="block text-[11px] font-semibold">{title}</span><span className="mt-1 block max-w-3xl text-[10px] leading-relaxed text-gray-500">{description}</span></span>
-      <input type="checkbox" role="switch" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-indigo-800" />
-    </label>
   );
 }
 
@@ -268,8 +160,8 @@ function TeacherSettingsContent({ profile }: { profile: TeacherPageProfile }) {
     <>
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-[23px] font-bold leading-tight sm:text-[28px]">Cài đặt Cá nhân &amp; Hồ sơ Giảng viên <span className="ml-1 inline-flex align-middle rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[9px] font-semibold text-indigo-800">Verified Faculty</span></h1>
-          <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-gray-600">Quản lý thông tin học thuật, bảo mật tài khoản, chứng thư số cá nhân và cấu hình thiết bị âm học phòng thu lab.</p>
+          <h1 className="text-[23px] font-bold leading-tight sm:text-[28px]">Cài đặt Cá nhân &amp; Hồ sơ Giảng viên</h1>
+          <p className="mt-2 max-w-3xl text-[12px] leading-relaxed text-gray-600">Thông tin hồ sơ hiện được đọc từ dữ liệu tài khoản. Tính năng chữ ký số và thiết bị âm thanh chưa được tích hợp.</p>
         </div>
         <span className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[10px] text-gray-500"><SettingsIcon name="shield" />HSM: Chưa kết nối</span>
       </div>
@@ -339,21 +231,14 @@ function TeacherSettingsContent({ profile }: { profile: TeacherPageProfile }) {
       )}
 
       {activeTab === 'audio' && (
-        <div className="mt-4 space-y-4">
+        <div className="mt-4">
           <AudioSettings />
-          <section className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="border-b border-gray-200 pb-3"><h2 className="text-[12px] font-semibold">Tần suất nhận email thông báo bài thi</h2><p className="mt-1 text-[10px] text-gray-500">Các lựa chọn dưới đây chỉ áp dụng trong phiên trình duyệt này; chưa được đồng bộ lên tài khoản.</p></div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <ToggleSetting title="Khi có bài nộp mới" description="Thông báo khi sinh viên hoàn thành ghi âm câu hỏi." defaultChecked />
-              <ToggleSetting title="Khi có yêu cầu phúc khảo" description="Ưu tiên thông báo khi có yêu cầu cần giảng viên xem xét." defaultChecked />
-            </div>
-          </section>
         </div>
       )}
 
       {notice && <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-[10px] text-emerald-800">{notice}</p>}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3">
-        <span className="flex items-center gap-2 text-[10px] text-gray-500"><SettingsIcon name="cloud" />{activeTab === 'security' ? 'Đổi mật khẩu được cập nhật trực tiếp qua xác thực Supabase.' : 'Tùy chọn chưa có tích hợp lưu trữ sẽ không được gửi lên máy chủ.'}</span>
+        <span className="flex items-center gap-2 text-[10px] text-gray-500"><SettingsIcon name="cloud" />{activeTab === 'security' ? 'Mật khẩu mới được cập nhật ngay sau khi xác nhận.' : 'Tùy chọn này hiện chưa khả dụng.'}</span>
         <div className="flex gap-2"><button type="button" onClick={() => { selectTab('profile'); setNotice(''); }} className="h-9 rounded-full border border-gray-300 px-4 text-[10px] hover:bg-gray-50">Hủy bỏ</button><button type="button" onClick={() => setNotice('Không có thay đổi nào được lưu: API cập nhật cài đặt hồ sơ chưa được tích hợp.')} className="h-9 rounded-full bg-black px-4 text-[10px] font-semibold text-white hover:bg-gray-800">Lưu thay đổi hồ sơ</button></div>
       </div>
     </>

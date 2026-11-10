@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
 import { getCachedProfile, getCachedProfileForRole } from '@/lib/profile-cache';
 import StudentSidebar from '@/components/StudentSidebar';
+import PageLoadingScreen from '@/components/PageLoadingScreen';
 
 export interface TaskItemData {
   id: string;
@@ -79,83 +80,13 @@ interface DemoAssignment {
   record?: string;
 }
 
-const demoAssignments: DemoAssignment[] = [
-  {
-    id: 'cs102-heap',
-    courseCode: 'CS102',
-    courseName: 'Lập trình Hướng đối tượng C++',
-    instructor: 'TS. Lê Hoàng C',
-    title: 'Bài tập Oral 2 - Cấu trúc dữ liệu Heap & QuickSort',
-    status: 'pending',
-    due: 'Hôm nay 23:59:59',
-    dueMeta: 'Tối đa 120s (2 phút)',
-    duration: 'Tiếng Việt kỹ thuật',
-    language: 'Ngôn ngữ & Chuẩn',
-    rubrics: [
-      { label: 'Phát âm & Trôi chảy', value: '30% (Fluency)' },
-      { label: 'Độ chính xác thuật toán', value: '40% (Logic Code)' },
-      { label: 'Thuật ngữ CNTT', value: '30% (Tech Vocab)' },
-    ],
-  },
-  {
-    id: 'fl2110-storage',
-    courseCode: 'FL2110',
-    courseName: 'Tiếng Anh Chuyên ngành IT',
-    instructor: 'ThS. Đỗ Phương Thảo',
-    title: 'Oral Presentation: Cloud Distributed Storage Architecture',
-    status: 'pending',
-    due: 'Ngày mai 20:00 (Còn 28h)',
-    dueMeta: '180s (3 phút tối đa)',
-    duration: 'Speech-to-Text + Audio',
-    language: 'Định dạng nộp',
-    rubrics: [
-      { label: 'Pronunciation', value: '40%' },
-      { label: 'Fluency', value: '30%' },
-      { label: 'Technical Vocab', value: '30%' },
-    ],
-    badge: 'Chuẩn CEFR B2',
-  },
-  {
-    id: 'it4409-microservices',
-    courseCode: 'IT4409',
-    courseName: 'Kiến trúc Phần mềm',
-    instructor: 'TS. Nguyễn Văn A',
-    title: 'Phân tích Microservices Architecture & CAP Theorem',
-    status: 'grading',
-    due: 'Bản ghi nộp: rec_tuantm_it4409_v1.wav (105s)',
-    dueMeta: '95% • Auralis Phonetizer',
-    duration: 'Trích xuất Formant F1/F2: Hoàn tất',
-    language: 'Định lượng độ ngắt nghỉ (Pause metrics): 98%',
-    rubrics: [],
-    badge: 'AI Đang phân tích 95%',
-    record: 'progress',
-  },
-  {
-    id: 'cs102-oop',
-    courseCode: 'CS102',
-    courseName: 'Lập trình Hướng đối tượng C++',
-    instructor: 'TS. Lê Hoàng C',
-    title: 'Vấn đáp OOP: Singleton & Factory Pattern',
-    status: 'completed',
-    due: 'ĐIỂM CHÍNH THỨC',
-    dueMeta: '9.4 / 10',
-    duration: 'Giảng viên ký duyệt',
-    language: 'Độ trôi chảy (Fluency)',
-    rubrics: [
-      { label: 'AI Chấm sơ bộ', value: '9.4 / 10' },
-      { label: 'Giảng viên ký duyệt', value: '9.0 (Ký số HSM)' },
-      { label: 'Độ trôi chảy (Fluency)', value: '94% (Rất tốt)' },
-      { label: 'Từ vựng kỹ thuật', value: '96% Khớp Rubric' },
-    ],
-    badge: '9.2 /10',
-  },
-];
+const demoAssignments: DemoAssignment[] = [];
 
 const filterOptions: { id: DemoFilter; label: string; count: string }[] = [
-  { id: 'all', label: 'Tất cả bài tập', count: '8' },
-  { id: 'pending', label: 'Cần nộp gấp', count: '2' },
-  { id: 'grading', label: 'Đã nộp - Chờ GV', count: '2' },
-  { id: 'completed', label: 'Đã có kết quả', count: '4' },
+  { id: 'all', label: 'Tất cả bài tập', count: '0' },
+  { id: 'pending', label: 'Cần nộp gấp', count: '0' },
+  { id: 'grading', label: 'Đã nộp - Chờ GV', count: '0' },
+  { id: 'completed', label: 'Đã có kết quả', count: '0' },
 ];
 
 export default function TaskDashboard() {
@@ -373,11 +304,7 @@ export default function TaskDashboard() {
     }), [course, filter, search, sort]);
 
   if (authChecking) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7f8fa] text-sm text-[#667085]">
-        Đang xác minh tài khoản...
-      </main>
-    );
+    return <PageLoadingScreen title="Đang tải bài tập" description="Đang chuẩn bị danh sách bài tập của bạn." />;
   }
 
   const displayName = fullName || userEmail;
@@ -396,7 +323,7 @@ export default function TaskDashboard() {
             <label className="hidden h-9 items-center gap-1.5 rounded-full border border-[#e5e5e5] bg-[#f6f6f6] px-3 text-[10px] text-[#555] sm:flex">
               <Icon name="calendar" className="h-3.5 w-3.5" />
               <select aria-label="Học kỳ" className="max-w-[145px] bg-transparent outline-none">
-                <option>Học kỳ II (2024 - 2025)</option>
+                <option>Học kỳ hiện tại</option>
               </select>
             </label>
             <button type="button" onClick={() => setActiveDialog('audio')} className="hidden h-9 items-center gap-1.5 rounded-full border border-[#dcdcdc] bg-white px-3 text-[10px] font-medium text-[#333] shadow-sm hover:bg-[#f8f8f8] sm:flex">
@@ -419,7 +346,6 @@ export default function TaskDashboard() {
                 <span>Sinh viên</span><Icon name="chevron" className="h-3 w-3" />
                 <span>Phòng thi vấn đáp</span><Icon name="chevron" className="h-3 w-3" />
                 <span className="font-semibold text-[#343434]">Danh sách bài tập oral</span>
-                <span className="ml-1 rounded-full border border-[#f0d99c] bg-[#fff9e8] px-2 py-0.5 text-[8px] font-medium text-[#8d6a12]">DỮ LIỆU DEMO</span>
               </div>
               <h1 className="text-[22px] font-bold tracking-tight sm:text-[27px]">Danh sách Bài tập &amp; Thi Vấn đáp (Oral)</h1>
               <p className="mt-1 max-w-[620px] text-[12px] leading-relaxed text-[#6f7175]">
@@ -428,7 +354,7 @@ export default function TaskDashboard() {
             </div>
             <div className="mt-1 flex h-8 items-center gap-2 rounded-full border border-[#9be3be] bg-[#eafaf1] px-3.5 text-[10px] font-semibold text-[#087b48]">
               <span className="flex items-end gap-[2px]"><i className="h-2 w-[3px] rounded-sm bg-current" /><i className="h-3 w-[3px] rounded-sm bg-current" /><i className="h-2 w-[3px] rounded-sm bg-current" /></span>
-              Hệ thống AI: Sẵn sàng
+              Tính năng AI: Tạm hoãn
             </div>
           </div>
 
@@ -439,28 +365,28 @@ export default function TaskDashboard() {
             </div>
           )}
 
-          <section aria-label="Thống kê bài tập oral demo" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <section aria-label="Thống kê bài tập oral" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <article className="rounded-2xl border border-[#e3e3e3] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-[#4c4c4c]">
                 <span>Tổng bài tập Oral</span><Icon name="clipboard" className="h-4 w-4 text-[#777]" />
               </div>
-              <div className="mt-2 flex items-baseline gap-2"><strong className="text-[30px] leading-none">08</strong><span className="text-[11px] text-[#858585]">bài tập (4 môn học)</span></div>
-              <div className="mt-3 flex items-center justify-between border-t border-[#e7e7e7] pt-2 text-[10px] text-[#858585]"><span>Đã hoàn tất: 4/8</span><strong className="text-[#333]">50%</strong></div>
+              <div className="mt-2 flex items-baseline gap-2"><strong className="text-[30px] leading-none">—</strong><span className="text-[11px] text-[#858585]">chưa có dữ liệu bài tập</span></div>
+              <div className="mt-3 flex items-center justify-between border-t border-[#e7e7e7] pt-2 text-[10px] text-[#858585]"><span>Bài tập thực tế nằm trong từng lớp</span></div>
             </article>
             <article className="rounded-2xl border border-[#ffb5b5] bg-[#fffafa] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
               <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-[#d02020]"><span>Cần nộp ngay (&lt;48h)</span><Icon name="clock" className="h-4 w-4" /></div>
-              <div className="mt-2 flex items-baseline gap-2"><strong className="text-[30px] leading-none">02</strong><span className="text-[11px]">bài tập gấp</span></div>
-              <div className="mt-3 flex items-center justify-between border-t border-[#f4cccc] pt-2 text-[10px] text-[#b42318]"><span>CS102 Heap &amp; QuickSort</span><strong className="text-right">Hôm nay<br />23:59</strong></div>
+              <div className="mt-2 flex items-baseline gap-2"><strong className="text-[30px] leading-none">—</strong><span className="text-[11px]">chưa có dữ liệu hạn nộp</span></div>
+              <div className="mt-3 flex items-center justify-between border-t border-[#f4cccc] pt-2 text-[10px] text-[#b42318]"><span>Hạn nộp sẽ hiển thị theo bài tập thật</span></div>
             </article>
             <article className="rounded-2xl border border-[#e3e3e3] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-[#4c4c4c]"><span>Đang chấm / Chờ AI</span><Icon name="brain" className="h-4 w-4 text-[#7167ff]" /></div>
-              <div className="mt-2 flex items-baseline gap-2"><strong className="text-[30px] leading-none">01</strong><span className="text-[11px] text-[#858585]">bài đang chấm điểm</span></div>
-              <div className="mt-3 flex items-center justify-between border-t border-[#e7e7e7] pt-2 text-[10px] text-[#858585]"><span>IT4409</span><strong className="text-[#625cff]">Tiến độ 95%</strong></div>
+              <div className="mt-2 flex items-baseline gap-2"><strong className="text-[30px] leading-none">—</strong><span className="text-[11px] text-[#858585]">chưa tích hợp chấm bài</span></div>
+              <div className="mt-3 flex items-center justify-between border-t border-[#e7e7e7] pt-2 text-[10px] text-[#858585]"><span>AI đang tạm hoãn</span></div>
             </article>
             <article className="rounded-2xl border border-[#e3e3e3] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-[#4c4c4c]"><span>Điểm trung bình AI</span><Icon name="badge" className="h-4 w-4 text-[#07834b]" /></div>
-              <div className="mt-2 flex items-baseline gap-2"><strong className="text-[30px] leading-none">8.85</strong><span className="text-[11px] text-[#858585]">/ 10</span><span className="ml-auto rounded bg-[#e8e5ff] px-2 py-0.5 text-[9px] font-semibold text-[#5549c9]">Giỏi</span></div>
-              <div className="mt-3 flex items-center justify-between border-t border-[#e7e7e7] pt-2 text-[10px] text-[#858585]"><span>Độ khớp Voiceprint:</span><strong className="text-[#087b48]">99.2% Hợp lệ</strong></div>
+              <div className="mt-2 flex items-baseline gap-2"><strong className="text-[30px] leading-none">—</strong><span className="text-[11px] text-[#858585]">chưa có điểm</span></div>
+              <div className="mt-3 flex items-center justify-between border-t border-[#e7e7e7] pt-2 text-[10px] text-[#858585]"><span>Điểm sẽ có sau khi giảng viên công bố</span></div>
             </article>
           </section>
 
@@ -469,7 +395,6 @@ export default function TaskDashboard() {
               {filterOptions.map((option) => (
                 <button key={option.id} type="button" onClick={() => setFilter(option.id)} aria-pressed={filter === option.id} className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-3 text-[10px] transition ${filter === option.id ? 'bg-white font-semibold text-[#252525] shadow-sm' : 'text-[#606060] hover:bg-white/60'}`}>
                   <span>{option.label} ({option.count})</span>
-                  {option.id === 'pending' && <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#cc2228] px-1 text-[9px] font-bold text-white">2</span>}
                 </button>
               ))}
             </div>
@@ -477,10 +402,7 @@ export default function TaskDashboard() {
               <label className="flex items-center gap-2">
                 <span>Môn:</span>
                 <select aria-label="Lọc theo môn học" value={course} onChange={(event) => setCourse(event.target.value)} className="h-9 min-w-[180px] rounded-lg border border-[#dedede] bg-white px-3 text-[10px] text-[#333] shadow-sm outline-none focus:border-[#777]">
-                  <option value="all">Tất cả môn học (4 môn)</option>
-                  <option value="CS102">CS102 - Lập trình Hướng đối tượng C++</option>
-                  <option value="FL2110">FL2110 - Tiếng Anh Chuyên ngành IT</option>
-                  <option value="IT4409">IT4409 - Kiến trúc Phần mềm</option>
+                  <option value="all">Tất cả lớp học</option>
                 </select>
               </label>
               <label className="flex items-center gap-2">
@@ -495,13 +417,13 @@ export default function TaskDashboard() {
           </section>
 
           <div className="mt-6 grid items-start gap-6 min-[1100px]:grid-cols-[minmax(0,2fr)_minmax(270px,0.96fr)]">
-            <section aria-label="Danh sách bài tập demo" className="min-w-0 space-y-4">
+            <section aria-label="Danh sách bài tập" className="min-w-0 space-y-4">
               {filteredAssignments.map((assignment) => (
                 <DemoAssignmentCard key={assignment.id} assignment={assignment} onAction={setActiveDialog} />
               ))}
               {filteredAssignments.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-[#d5d5d5] bg-white px-5 py-12 text-center text-sm text-[#777]">
-                  Không tìm thấy bài tập demo phù hợp.
+                  Danh sách bài tập thực tế được xem trong từng lớp học.
                 </div>
               )}
             </section>
@@ -509,18 +431,10 @@ export default function TaskDashboard() {
             <aside className="space-y-4">
               <section className="rounded-[22px] border border-[#e2e2e2] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                 <div className="flex items-start justify-between gap-3">
-                  <h2 className="flex items-center gap-2 text-[13px] font-bold"><Icon name="sound" className="h-5 w-5" /> Yêu cầu phòng thi âm học</h2>
-                  <span className="rounded-md border border-[#90dfb4] bg-[#effaf3] px-2 py-1 text-[9px] font-bold uppercase text-[#078344]">Đạt chuẩn</span>
+                  <h2 className="flex items-center gap-2 text-[13px] font-bold"><Icon name="sound" className="h-5 w-5" /> Ghi âm và phân tích</h2>
+                  <span className="rounded-md bg-gray-100 px-2 py-1 text-[9px] font-bold uppercase text-gray-600">Tạm hoãn</span>
                 </div>
-                <p className="mt-3 text-[10px] leading-relaxed text-[#666]">Để hệ thống Auralis AI phân tách giọng và tính điểm chính xác, thiết bị thu âm cần tuân thủ các thông số kỹ thuật:</p>
-                <ul className="mt-3 space-y-2.5 text-[10px] leading-relaxed text-[#444]">
-                  <li className="flex gap-2"><Icon name="check" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#078344]" /><span><b>Microphone:</b> Tần số lấy mẫu khuyến nghị 44.1kHz hoặc 48kHz.</span></li>
-                  <li className="flex gap-2"><Icon name="check" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#078344]" /><span><b>Độ trễ âm thanh (Latency):</b> Dưới &lt; 20ms để đảm bảo đồng bộ khẩu hình.</span></li>
-                  <li className="flex gap-2"><Icon name="check" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#078344]" /><span><b>Tiếng ồn nền (Noise Floor):</b> Không vượt ngưỡng &gt; -35dB trong phòng thi.</span></li>
-                </ul>
-                <button type="button" onClick={() => setActiveDialog('audio')} className="mt-4 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#f1f1f1] text-[10px] font-semibold hover:bg-[#e9e9e9]">
-                  <Icon name="sound" className="h-4 w-4" /> Chạy kiểm tra độ tạp âm môi trường
-                </button>
+                <p className="mt-3 text-[10px] leading-relaxed text-[#666]">Ghi âm, Speech-to-Text và chấm điểm AI chưa được bật.</p>
               </section>
 
               <section className="rounded-[22px] border border-[#e2e2e2] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -535,14 +449,8 @@ export default function TaskDashboard() {
               <section className="rounded-[22px] border border-[#e2e2e2] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="text-[13px] font-bold">Lịch thi Oral sắp tới</h2>
-                  <span className="text-[9px] text-[#888]">Tháng 04/2025</span>
                 </div>
-                <div className="mt-3 space-y-2">
-                  <ScheduleItem day="HÔM NAY" title="CS102 Heap & QuickSort" detail="23:59 • Khảo thí trực tuyến" urgent />
-                  <ScheduleItem day="MAI" title="FL2110 Cloud Storage" detail="20:00 • Nộp ghi âm" />
-                  <ScheduleItem day="18/04" title="IT3080 Tiến trình & Deadlock" detail="Vấn đáp trực tiếp với AI" />
-                </div>
-                <button type="button" onClick={() => setActiveDialog('schedule')} className="mt-3 flex w-full items-center justify-center gap-1 text-[10px] font-medium text-[#444] hover:text-[#111]">Xem toàn bộ lịch khảo thí kỳ học <Icon name="arrow" className="h-3.5 w-3.5" /></button>
+                <p className="mt-3 text-[10px] text-[#666]">Lịch thi sẽ hiển thị khi được kết nối với dữ liệu bài tập.</p>
               </section>
             </aside>
           </div>
@@ -551,7 +459,7 @@ export default function TaskDashboard() {
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h2 className="text-[16px] font-bold">Công việc cá nhân</h2>
-                <p className="mt-1 text-[10px] text-[#777]">Đây là các công việc thật được lưu trong tài khoản Supabase của bạn.</p>
+                <p className="mt-1 text-[10px] text-[#777]">Các công việc bạn tạo sẽ được lưu trong tài khoản của mình.</p>
               </div>
               <button type="button" onClick={() => void loadTasks()} disabled={loading || isSubmitting} className="flex h-8 items-center gap-1.5 rounded-lg border border-[#dedede] bg-white px-3 text-[10px] hover:bg-[#f5f5f5] disabled:opacity-60"><Icon name="refresh" className="h-3.5 w-3.5" />{loading ? 'Đang tải...' : 'Làm mới'}</button>
             </div>
@@ -568,7 +476,7 @@ export default function TaskDashboard() {
             {tasks.length === 0 ? (
               <div className="rounded-xl border border-dashed border-[#d9dadd] bg-white px-5 py-8 text-center">
                 <h3 className="text-[12px] font-semibold">Bạn chưa có công việc cá nhân nào</h3>
-                <p className="mt-1 text-[10px] text-[#777]">Các thẻ bài thi phía trên là dữ liệu demo theo ảnh tham chiếu, không được lưu vào Supabase.</p>
+                <p className="mt-1 text-[10px] text-[#777]">Bài tập được công bố sẽ hiển thị trong lớp học tương ứng.</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -665,7 +573,7 @@ function DemoAssignmentCard({ assignment, onAction }: { assignment: DemoAssignme
       )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#e7e7e7] pt-3">
-        <div className="flex items-center gap-1.5 text-[9px] text-[#777]"><span className={`h-1.5 w-1.5 rounded-full ${completed ? 'bg-[#13945a]' : 'bg-[#919191]'}`} />{completed ? 'Đã hoàn thành • Có kết quả' : assignment.status === 'grading' ? 'Đã nộp • Đang chờ AI' : 'Đang mở - Chưa nộp'}</div>
+        <div className="flex items-center gap-1.5 text-[9px] text-[#777]"><span className={`h-1.5 w-1.5 rounded-full ${completed ? 'bg-[#13945a]' : 'bg-[#919191]'}`} />{completed ? 'Đã hoàn thành • Có kết quả' : assignment.status === 'grading' ? 'Đã nộp • Đang chờ xử lý' : 'Đang mở - Chưa nộp'}</div>
         <div className="flex flex-wrap items-center gap-1.5">
           {completed ? (
             <><button type="button" onClick={() => onAction('audio')} className="flex h-8 items-center gap-1.5 rounded-full border border-[#d7d7d7] px-3 text-[9px] hover:bg-[#f6f6f6]"><Icon name="headphones" className="h-3.5 w-3.5" /> Nghe lại bản thu</button><button type="button" onClick={() => onAction('analysis')} className="h-8 rounded-full bg-[#efefef] px-3 text-[9px] hover:bg-[#e7e7e7]">Xem tiến trình phân tích AI</button></>
@@ -684,20 +592,10 @@ function TipCard({ title, children }: { title: string; children: React.ReactNode
   return <article className="rounded-xl border border-[#e2e2e2] bg-[#fafafa] p-3"><h3 className="text-[10px] font-semibold text-[#333]">{title}</h3><p className="mt-1.5 text-[9px] leading-relaxed text-[#6e6e6e]">{children}</p></article>;
 }
 
-function ScheduleItem({ day, title, detail, urgent = false }: { day: string; title: string; detail: string; urgent?: boolean }) {
-  return (
-    <article className={`flex items-center gap-2 rounded-lg border p-2 ${urgent ? 'border-[#fac3c3] bg-[#fff8f8]' : 'border-[#e2e2e2] bg-[#f8f8f8]'}`}>
-      <span className={`shrink-0 rounded px-2 py-1 text-[8px] font-bold ${urgent ? 'border border-[#f3a5a5] bg-white text-[#c91d24]' : 'bg-[#eaeaea] text-[#444]'}`}>{day}</span>
-      <span className="min-w-0 flex-1"><span className="block truncate text-[9px] font-semibold text-[#333]">{title}</span><span className="mt-0.5 block truncate text-[8px] text-[#777]">{detail}</span></span>
-      {urgent ? <span className="text-sm font-bold text-[#d3232a]">!</span> : <Icon name="calendar" className="h-3.5 w-3.5 shrink-0 text-[#777]" />}
-    </article>
-  );
-}
-
 function PreviewDialog({ type, onClose }: { type: string; onClose: () => void }) {
   const details: Record<string, { title: string; body: string }> = {
     audio: { title: 'Kiểm tra Micro & Audio', body: 'Đây là giao diện minh họa theo thiết kế. Quyền truy cập microphone và đo thông số âm học chưa được kết nối.' },
-    notifications: { title: 'Thông báo', body: 'Thông báo bài thi trong ảnh là dữ liệu demo, chưa liên kết với lịch thi trong Supabase.' },
+    notifications: { title: 'Thông báo', body: 'Thông báo bài thi trong ảnh là dữ liệu minh họa, chưa liên kết với lịch bài tập.' },
     schedule: { title: 'Lịch thi Oral', body: 'Lịch thi đang hiển thị dữ liệu demo theo ảnh tham chiếu.' },
     slides: { title: 'Đề bài & Slide mẫu', body: 'Tài liệu bài tập demo chưa được tải lên hệ thống.' },
     rubric: { title: 'Rubric chấm điểm', body: 'Các tiêu chí rubric đang là dữ liệu minh họa, chưa được lưu trong cơ sở dữ liệu.' },

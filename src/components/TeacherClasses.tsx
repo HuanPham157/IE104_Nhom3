@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase-browser';
-import { getCachedProfileForRole } from '@/lib/profile-cache';
+import { getCachedProfile } from '@/lib/profile-cache';
+import { oralcheckFetch } from '@/lib/oralcheck-client';
 import TeacherSidebar from '@/components/TeacherSidebar';
+import PageLoadingScreen from '@/components/PageLoadingScreen';
 
 interface TeacherProfile {
   full_name: string;
-  faculty: string;
 }
 
 type IconName = 'overview' | 'classes' | 'exam' | 'recordings' | 'telemetry' | 'settings' | 'help' | 'logout' | 'search' | 'users' | 'fingerprint' | 'signature' | 'alert' | 'filter' | 'sort' | 'book' | 'mic' | 'check' | 'chart' | 'dots' | 'roster' | 'folder' | 'calendar' | 'message' | 'badge' | 'close' | 'add';
@@ -49,6 +50,7 @@ function Icon({ name, className = 'h-4 w-4' }: { name: IconName; className?: str
 }
 
 interface Course {
+  id: string;
   code: string;
   secondaryCode: string;
   faculty: string;
@@ -57,51 +59,122 @@ interface Course {
   schedule: string;
   students: string;
   voiceprint: string;
-  exams: string;
-  submissions: string;
-  engine: string;
+  assignmentCount: number;
   average: string;
   kind: 'teaching' | 'advisory';
   status: string;
+  canEnter: boolean;
 }
 
-const initialCourses: Course[] = [
-  { code: 'AIO-8892', secondaryCode: 'IT4409', faculty: 'Khoa CNTT', title: 'KTPM-K20: Kiến trúc Phần mềm', lab: 'Lab A3.04', schedule: 'Thứ 3, Tiết 1 - 4', students: '48 / 50 SV', voiceprint: 'Voiceprint 100%', exams: '3/4 đợt thi', submissions: '93.3% nộp bài', engine: 'Whisper-v4 • Auralis LLM', average: '8.35/10', kind: 'teaching', status: 'Đang giảng dạy' },
-  { code: 'AIO-3419', secondaryCode: 'CS102', faculty: 'Khoa KHMT', title: 'OOP-K21: Lập trình Hướng đối tượng C++', lab: 'Lab B1.02', schedule: 'Thứ 5, Tiết 5 - 8', students: '53 / 60 SV', voiceprint: 'Voiceprint 98%', exams: '2/4 đợt thi', submissions: '88.3% nộp bài', engine: 'C++ Pronounce AI', average: '9.10/10', kind: 'teaching', status: 'Đang giảng dạy' },
-  { code: 'AIO-5510', secondaryCode: 'IT3080', faculty: 'Khoa KTMT', title: 'HDH-K21: Hệ điều hành & Mạng máy tính', lab: 'Lab A2.01', schedule: 'Thứ 2, Tiết 7 - 10', students: '45 / 45 (Đầy)', voiceprint: '100% Voiceprint', exams: '1/3 đợt thi', submissions: '4 bài nộp mới chờ ký số HSM', engine: 'Kernel Voiceprint v2', average: '8.50/10', kind: 'teaching', status: 'Đang giảng dạy' },
-  { code: 'AIO-9012', secondaryCode: 'IT4100', faculty: 'Khoa KTMT', title: 'KTMT-K19: Thiết kế Hệ thống Nhúng & IoT', lab: 'Lab C3.08', schedule: 'Thứ 6, Tiết 1 - 4', students: '42 / 45 SV', voiceprint: '100% Hoàn thành', exams: '3/3 đợt thi (Kết thúc)', submissions: '100% Hoàn tất', engine: 'Hardware VQA', average: '8.80/10', kind: 'teaching', status: 'Hoàn tất' },
+interface ClassRecord {
+  id: string;
+  class_name: string;
+  class_code: string;
+  description: string | null;
+  status: 'pending' | 'active' | 'rejected' | 'archived';
+  lecturer_name: string | null;
+}
+
+const faculties = [
+  'Khoa Công nghệ Phần mềm',
+  'Khoa Khoa học Máy tính',
+  'Khoa Kỹ thuật Máy tính',
+  'Khoa Hệ thống Thông tin',
+  'Khoa Mạng máy tính và Truyền thông',
+  'Khoa Khoa học và Kỹ thuật Thông tin',
 ];
 
-const advisoryClasses = [
-  { term: 'KHÓA 2020 - 2025', faculty: 'Khoa Công nghệ Thông tin', level: 'Năm thứ 4 (Sắp tốt nghiệp)', title: 'K65-CNTT-02: Lớp Sinh hoạt Cố vấn K65 CNTT 2', count: '62', leader: 'Trần Quốc Bảo', contact: 'bao.tq20@sis.hust.edu.vn', cpa: '3.18', gpa: '86.4', grade: 'Khá - Tốt', alerts: '2 sinh viên', alertDetail: 'Nợ bài Oral Tiếng Anh B2', accent: 'indigo' },
-  { term: 'KHÓA 2021 - 2026', faculty: 'Khoa Khoa học Máy tính', level: 'Năm thứ 3 (Chuyên ngành)', title: 'K66-KHMT-01: Lớp Sinh hoạt Cố vấn K66 KHMT 1', count: '61', leader: 'Lê Minh Cường', contact: '0914.882.xxx', cpa: '3.25', gpa: '88.2', grade: 'Giỏi', alerts: '0 sinh viên', alertDetail: '100% An toàn học vụ', accent: 'green' },
-];
+function getClassMetadata(description: string | null, fallbackFaculty: string) {
+  const lines = (description ?? '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const secondaryCode = lines.find((line) => /^Mã môn:/i.test(line))?.replace(/^Mã môn:\s*/i, '') ?? '';
+  const classFaculty = lines.find((line) => /^Khoa:/i.test(line))?.replace(/^Khoa:\s*/i, '') ?? fallbackFaculty;
+  const schedule = lines.filter((line) => !/^(Mã môn|Khoa):/i.test(line)).join(' • ');
+  return { secondaryCode, faculty: classFaculty, schedule };
+}
 
 export default function TeacherClasses() {
   const router = useRouter();
-  const [cachedProfile] = useState(() => getCachedProfileForRole('teacher'));
-  const [profile] = useState<TeacherProfile | null>(() => cachedProfile ? {
-    full_name: cachedProfile.full_name ?? 'Th.S Nguyễn Văn B',
-    faculty: cachedProfile.faculty ?? 'Khoa Công nghệ Phần mềm',
-  } : { full_name: 'Th.S Nguyễn Văn B', faculty: 'Khoa Công nghệ Phần mềm' });
-  const [checking] = useState(false);
+  const [profile, setProfile] = useState<TeacherProfile | null>(null);
+  const [checking, setChecking] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'all' | 'teaching' | 'advisory'>('all');
   const [faculty, setFaculty] = useState('all');
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState('schedule');
-  const [courses, setCourses] = useState<Course[]>(initialCourses);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [adminMode, setAdminMode] = useState(false);
 
   // Modal Create Class state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [classNameInput, setClassNameInput] = useState('');
   const [classCodeInput, setClassCodeInput] = useState('');
-  const [classFacultyInput, setClassFacultyInput] = useState('Khoa Công nghệ Phần mềm');
-  const [classLabInput, setClassLabInput] = useState('Lab B2.04');
-  const [classScheduleInput, setClassScheduleInput] = useState('Thứ 4, Tiết 1 - 4');
+  const [classFacultyInput, setClassFacultyInput] = useState('');
+  const [classLabInput, setClassLabInput] = useState('');
+  const [classScheduleInput, setClassScheduleInput] = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
+  const [creatingClass, setCreatingClass] = useState(false);
+  const creatingClassRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        const user = session?.user;
+        if (!user) {
+          router.replace('/login');
+          return;
+        }
+        const profileData = await getCachedProfile(user.id);
+        if (profileData.role !== 'teacher' && profileData.role !== 'admin') {
+          router.replace(profileData.role === 'student' ? '/student' : '/login');
+          return;
+        }
+        if (!active) return;
+        const isAdministrator = profileData.role === 'admin';
+        setAdminMode(isAdministrator);
+        setProfile({
+          full_name: profileData.full_name ?? '',
+        });
+        const response = await oralcheckFetch<{ data: ClassRecord[] }>('/api/classes');
+        const assignmentCounts = await Promise.all(response.data.map(async (classItem) => {
+          if (!isAdministrator && classItem.status === 'pending') return 0;
+          const { data: assignments } = await oralcheckFetch<{ data: Array<{ id: string }> }>(
+            `/api/classes/${classItem.id}/assignments`,
+          );
+          return assignments.length;
+        }));
+        if (!active) return;
+        setCourses(response.data.map((item, index) => ({
+          ...getClassMetadata(item.description, ''),
+          id: item.id,
+          code: item.class_code,
+          title: item.class_name,
+          lab: item.status === 'active' ? 'Đang hoạt động' : item.status === 'pending' ? 'Chờ duyệt' : item.status === 'archived' ? 'Đã lưu trữ' : 'Đã từ chối',
+          students: '—',
+          voiceprint: '—',
+          assignmentCount: assignmentCounts[index],
+          average: 'Chưa có điểm',
+          kind: 'teaching',
+          status: item.status === 'active' ? 'Đang giảng dạy' : item.status === 'pending' ? 'Chờ duyệt' : item.status === 'archived' ? 'Đã lưu trữ' : 'Bị từ chối',
+          canEnter: isAdministrator || item.status === 'active',
+        })));
+      } catch (error) {
+        if (active) setErrorMessage(error instanceof Error ? error.message : 'Không thể tải lớp học.');
+      } finally {
+        if (active) {
+          setChecking(false);
+          setLoading(false);
+        }
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, [router]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -116,35 +189,51 @@ export default function TeacherClasses() {
     }
   }
 
-  function handleCreateClass(e: React.FormEvent) {
+  async function handleCreateClass(e: React.FormEvent) {
     e.preventDefault();
-    const generatedCode = `AIO-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newCourse: Course = {
-      code: generatedCode,
-      secondaryCode: classCodeInput.toUpperCase() || 'IT4999',
-      faculty: classFacultyInput,
-      title: classNameInput,
-      lab: classLabInput,
-      schedule: classScheduleInput,
-      students: '0 / 45 SV',
-      voiceprint: 'Chờ đồng bộ',
-      exams: '0 đợt thi',
-      submissions: '0 bài nộp',
-      engine: 'Whisper-v4 • Auralis LLM',
-      average: 'Chưa có điểm',
-      kind: 'teaching',
-      status: 'Đang giảng dạy',
-    };
-
-    setCourses([newCourse, ...courses]);
-    setCreateSuccess(`Lớp học "${classNameInput}" (${generatedCode}) đã được tạo! Yêu cầu cấp mã lớp chính thức đã gửi tới Quản trị viên (Admin) phê duyệt.`);
-
-    setTimeout(() => {
+    if (creatingClassRef.current) return;
+    creatingClassRef.current = true;
+    setCreatingClass(true);
+    setErrorMessage('');
+    setCreateSuccess('');
+    try {
+      const description = [
+        `Mã môn: ${classCodeInput.trim().toUpperCase()}`,
+        `Khoa: ${classFacultyInput.trim()}`,
+        classLabInput.trim() && `Phòng: ${classLabInput.trim()}`,
+        classScheduleInput.trim() && `Lịch: ${classScheduleInput.trim()}`,
+      ].filter(Boolean).join('\n');
+      const response = await oralcheckFetch<{ data: { class: ClassRecord } }>('/api/classes', {
+        method: 'POST',
+        body: JSON.stringify({ class_name: classNameInput.trim(), description }),
+      });
+      const item = response.data.class;
+      setCourses((current) => [{
+        ...getClassMetadata(item.description, classFacultyInput.trim()),
+        id: item.id,
+        code: item.class_code,
+        title: item.class_name,
+        lab: item.status === 'active' ? 'Đang hoạt động' : 'Chờ duyệt',
+        students: '—',
+        voiceprint: '—',
+        assignmentCount: 0,
+        average: 'Chưa có điểm',
+        kind: 'teaching',
+        status: item.status === 'active' ? 'Đang giảng dạy' : 'Chờ duyệt',
+        canEnter: adminMode || item.status === 'active',
+      }, ...current]);
+      setCreateSuccess(adminMode
+        ? `Lớp "${item.class_name}" đã được tạo và kích hoạt.`
+        : `Yêu cầu mở lớp "${item.class_name}" đã được gửi để quản trị viên phê duyệt.`);
       setShowCreateModal(false);
-      setCreateSuccess('');
       setClassNameInput('');
       setClassCodeInput('');
-    }, 2000);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể gửi yêu cầu tạo lớp.');
+    } finally {
+      creatingClassRef.current = false;
+      setCreatingClass(false);
+    }
   }
 
   const visibleCourses = useMemo(() => courses
@@ -154,7 +243,9 @@ export default function TeacherClasses() {
     .filter((item) => `${item.code} ${item.secondaryCode} ${item.title} ${item.faculty}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
     .sort((a, b) => sort === 'name' ? a.title.localeCompare(b.title, 'vi') : sort === 'students' ? Number.parseInt(b.students, 10) - Number.parseInt(a.students, 10) : courses.indexOf(a) - courses.indexOf(b)), [courses, faculty, query, sort, status, tab]);
 
-  if (checking) return <main className="flex min-h-screen items-center justify-center bg-[#f8f8f8] text-sm text-gray-600">Đang xác minh tài khoản giảng viên...</main>;
+  if (checking || loading) {
+    return <PageLoadingScreen title="Đang tải lớp học" description="Đang chuẩn bị danh sách lớp và bài tập của bạn." />;
+  }
   if (errorMessage && !profile) return <main className="flex min-h-screen items-center justify-center p-5"><div className="max-w-md rounded-xl border border-red-200 bg-white p-6 text-center"><p role="alert" className="text-sm text-red-700">{errorMessage}</p><button type="button" onClick={() => window.location.reload()} className="mt-4 rounded-lg bg-black px-4 py-2 text-sm text-white">Thử lại</button></div></main>;
   if (!profile) return null;
 
@@ -162,12 +253,12 @@ export default function TeacherClasses() {
 
   return (
     <main className="min-h-screen bg-[#f8f8f8] text-[#202124]">
-      <TeacherSidebar currentPage="classes" signingOut={signingOut} onSignOut={handleSignOut} />
+      <TeacherSidebar currentPage="classes" signingOut={signingOut} onSignOut={handleSignOut} adminMode={adminMode} />
 
       <div className="md:ml-[255px]">
         <header className="sticky top-0 z-10 flex min-h-[68px] items-center justify-between gap-3 border-b border-[#e5e5e5] bg-white/95 px-5 backdrop-blur sm:px-7">
           <div className="text-[11px] text-gray-500">
-            Lớp học &amp; Hội đồng <span className="mx-2">/</span><b className="text-gray-800">Quản lý lớp học</b>
+            {adminMode ? 'Quản lý lớp & bài tập' : 'Lớp học & Hội đồng'} <span className="mx-2">/</span><b className="text-gray-800">Quản lý lớp học</b>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -175,40 +266,30 @@ export default function TeacherClasses() {
               className="inline-flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-gray-800"
             >
               <Icon name="add" className="h-3.5 w-3.5" />
-              Tạo lớp học mới (Popup)
+              Tạo lớp mới
             </button>
-            <span className="hidden rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[9px] font-semibold text-indigo-800 sm:inline-flex">
-              HỌC KỲ I • 2026-2027
-            </span>
-            <Link href="/teacher/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#efefff] text-[10px] font-bold text-indigo-800 hover:ring-2 hover:ring-indigo-400">
-              {initials}
-            </Link>
+            {adminMode
+              ? <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#efefff] text-[10px] font-bold text-indigo-800">{initials}</span>
+              : <Link href="/teacher/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#efefff] text-[10px] font-bold text-indigo-800 hover:ring-2 hover:ring-indigo-400">{initials}</Link>}
           </div>
         </header>
 
         <div className="mx-auto max-w-[1600px] px-5 pb-10 pt-6 sm:px-7">
           {errorMessage && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{errorMessage}</p>}
+          {createSuccess && !showCreateModal && <p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{createSuccess}</p>}
           <div className="border-b border-gray-200 pb-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[8px] font-bold text-indigo-800">
-                  HỌC KỲ I • 2026-2027
-                </span>
                 <h1 className="mt-2 text-[23px] font-bold tracking-tight sm:text-[27px]">
-                  Lớp học phụ trách &amp; Cố vấn học tập
+                  {adminMode ? 'Quản lý lớp học' : 'Lớp học phụ trách & Cố vấn học tập'}
                 </h1>
                 <p className="mt-1 text-xs text-gray-600">
-                  Quản lý danh sách lớp, tạo lớp học mới chờ Admin phê duyệt, và vào từng lớp để xem danh sách sinh viên &amp; điểm oral.
+                  {adminMode
+                    ? 'Xem lớp học, quản lý sinh viên và bài tập trong toàn hệ thống.'
+                    : 'Quản lý danh sách lớp, tạo lớp học mới chờ Admin phê duyệt và vào từng lớp để quản lý sinh viên, bài tập.'}
                 </p>
               </div>
 
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-800 shadow-sm hover:bg-gray-50"
-              >
-                <span className="text-emerald-700 font-bold">+</span>
-                Tạo lớp học mới
-              </button>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -231,17 +312,15 @@ export default function TeacherClasses() {
                   className="flex h-9 items-center gap-2 rounded-full bg-black px-4 text-[10px] font-semibold text-white hover:bg-gray-800"
                 >
                   <Icon name="exam" className="h-3.5 w-3.5 text-indigo-400" />
-                  Soạn đề thi &amp; Barem LLM
+                  Soạn bài tập
                 </Link>
               </div>
             </div>
           </div>
 
-          <section aria-label="Thống kê lớp học demo" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-            <MetricCard title="Tổng sinh viên phụ trách" value="348" suffix="sinh viên" icon="users" footer="225 SV giảng dạy / 123 SV cố vấn" />
-            <MetricCard title="Xác thực sinh trắc giọng nói" value="98.6%" suffix="Chuẩn hóa" icon="fingerprint" footer="343/348 đã đồng bộ mẫu âm học" green />
-            <MetricCard title="Bài thi Oral chờ ký số HSM" value="14" suffix="bài nộp mới" icon="signature" footer="Cần thẩm định âm học AI trong 48h" purple />
-            <MetricCard title="Cảnh báo học vụ / Cố vấn" value="06" suffix="sinh viên" icon="alert" footer="2 nợ bài oral, 4 CPA < 2.0 cần tư vấn" red />
+          <section aria-label="Thống kê lớp học" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <MetricCard title={adminMode ? 'Lớp học quản lý' : 'Lớp học phụ trách'} value={String(courses.length)} suffix="lớp học" icon="book" footer="Dữ liệu từ hệ thống" />
+            <MetricCard title="Yêu cầu chờ phê duyệt" value={String(courses.filter((course) => course.status === 'Chờ duyệt').length)} suffix="yêu cầu" icon="users" footer={adminMode ? 'Yêu cầu mở lớp đang chờ xử lý' : 'Quản trị viên sẽ cập nhật trạng thái'} purple />
           </section>
 
           <section className="mt-5 flex flex-col gap-3 border-b border-gray-200 pb-4">
@@ -250,7 +329,6 @@ export default function TeacherClasses() {
                 {([
                   { id: 'all', text: 'Tất cả các lớp' },
                   { id: 'teaching', text: 'Lớp giảng dạy chuyên môn' },
-                  { id: 'advisory', text: 'Lớp Cố vấn học tập' },
                 ] as const).map((item) => (
                   <button
                     key={item.id}
@@ -281,7 +359,7 @@ export default function TeacherClasses() {
                       Lớp trực tiếp giảng dạy chuyên môn
                     </h2>
                     <p className="mt-1 text-[10px] text-gray-600">
-                      Tổ chức khảo thí vấn đáp oral, phân tích phổ âm thanh AI và duyệt điểm số chính thức.
+                      Tạo lớp học và quản lý bài tập. Ghi âm và chấm điểm AI hiện chưa được bật.
                     </p>
                   </div>
                 </div>
@@ -293,32 +371,14 @@ export default function TeacherClasses() {
                     key={item.code}
                     item={item}
                     index={index}
-                    onOpen={() => router.push(`/teacher/classes/${item.code}`)}
+                    onOpen={() => router.push(`/teacher/classes/${item.id}`)}
                   />
                 ))}
-              </div>
-            </section>
-          )}
-
-          {(tab === 'all' || tab === 'advisory') && (
-            <section className="mt-6">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-[#f4f3ff] p-4 sm:p-5">
-                <div className="flex gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-800">
-                    <Icon name="users" />
-                  </span>
-                  <div>
-                    <h2 className="text-[15px] font-bold">Lớp Cố vấn học tập &amp; Chủ nhiệm (Academic Advisory)</h2>
-                    <p className="mt-1 max-w-[720px] text-[10px] leading-relaxed text-gray-600">
-                      Theo dõi tình hình học tập toàn diện, cảnh báo học vụ và tư vấn kế hoạch khảo thí chuẩn âm học cho sinh viên.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 grid gap-3 xl:grid-cols-2">
-                {advisoryClasses.map((item) => (
-                  <AdvisoryCard key={item.term} item={item} />
-                ))}
+                {!loading && visibleCourses.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
+                    {adminMode ? 'Chưa có lớp học trong hệ thống.' : 'Chưa có lớp học phù hợp. Tạo lớp mới để gửi yêu cầu phê duyệt.'}
+                  </p>
+                )}
               </div>
             </section>
           )}
@@ -329,7 +389,7 @@ export default function TeacherClasses() {
         </div>
       </div>
 
-      {/* POPUP MODAL TẠO LỚP HỌC MỚI (CHỜ ADMIN DUYỆT) */}
+      {/* Class creation dialog */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
@@ -341,19 +401,21 @@ export default function TeacherClasses() {
                 <div>
                   <h3 className="text-base font-bold text-gray-900">Tạo Lớp Học Mới</h3>
                   <span className="text-[10px] text-indigo-700 font-semibold">
-                    Quy trình Giảng viên tạo → Chờ Admin duyệt cấp mã Class Code
+                    {adminMode ? 'Lớp mới sẽ được kích hoạt ngay sau khi tạo.' : 'Lớp mới sẽ chờ quản trị viên phê duyệt.'}
                   </span>
                 </div>
               </div>
               <button
+                type="button"
+                disabled={creatingClass}
                 onClick={() => setShowCreateModal(false)}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateClass} className="mt-4 space-y-4">
+            <form onSubmit={handleCreateClass} aria-busy={creatingClass} className="mt-4 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-700">
                   Tên học phần / Lớp môn học *
@@ -384,18 +446,18 @@ export default function TeacherClasses() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700">
-                    Khoa / Viện quản lý
+                  <label htmlFor="class-faculty" className="block text-xs font-bold text-gray-700">
+                    Khoa / Viện quản lý *
                   </label>
                   <select
+                    id="class-faculty"
+                    required
                     value={classFacultyInput}
                     onChange={(e) => setClassFacultyInput(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-gray-300 p-2 text-xs text-gray-900 focus:border-black focus:outline-none"
+                    className="mt-1.5 w-full rounded-xl border border-gray-300 px-3 py-2 text-xs text-gray-900 focus:border-black focus:outline-none"
                   >
-                    <option>Khoa Công nghệ Phần mềm</option>
-                    <option>Khoa Khoa học Máy tính</option>
-                    <option>Khoa Kỹ thuật Máy tính</option>
-                    <option>Khoa Hệ thống Thông tin</option>
+                    <option value="" disabled>Chọn khoa quản lý</option>
+                    {faculties.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
                 </div>
               </div>
@@ -427,8 +489,10 @@ export default function TeacherClasses() {
               </div>
 
               <div className="rounded-xl border border-indigo-100 bg-[#f8f9ff] p-3 text-xs text-gray-600">
-                <span className="font-bold text-indigo-900 block mb-0.5">ℹ Lưu ý quản trị:</span>
-                Sau khi gửi, yêu cầu tạo lớp sẽ được chuyển đến Dashboard Admin để cấp mã Class Code chính thức và kích hoạt tài nguyên AI Voice Token.
+                <span className="font-bold text-indigo-900 block mb-0.5">{adminMode ? 'Thông tin lớp học:' : 'Quy trình phê duyệt:'}</span>
+                {adminMode
+                  ? 'Lớp sẽ hoạt động ngay và được gắn với tài khoản quản trị viên đang tạo.'
+                  : 'Lớp sẽ chờ quản trị viên phê duyệt trước khi sinh viên có thể tham gia.'}
               </div>
 
               {createSuccess && (
@@ -440,16 +504,18 @@ export default function TeacherClasses() {
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
                 <button
                   type="button"
+                  disabled={creatingClass}
                   onClick={() => setShowCreateModal(false)}
-                  className="rounded-full border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-full border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="rounded-full bg-black px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-gray-800"
+                  disabled={creatingClass}
+                  className="rounded-full bg-black px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-500"
                 >
-                  Gửi yêu cầu tạo lớp
+                  {creatingClass ? 'Đang gửi...' : adminMode ? 'Tạo lớp học' : 'Gửi yêu cầu tạo lớp'}
                 </button>
               </div>
             </form>
@@ -467,14 +533,15 @@ function MetricCard({ title, value, suffix, icon, footer, green = false, purple 
 
 function CourseCard({ item, index, onOpen }: { item: Course; index: number; onOpen: () => void }) {
   const highlighted = index === 0;
-  const done = item.status === 'Hoàn tất';
   return (
     <article data-testid={`teacher-course-${item.code}`} className={`rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${highlighted ? 'border-2 border-indigo-300' : 'border-[#dedede]'}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-            <span className="rounded bg-gray-100 px-2 py-0.5 font-mono font-bold text-gray-900">{item.code} • {item.secondaryCode}</span>
-            <span className="text-gray-500">• {item.faculty}</span>
+            <span className="rounded bg-gray-100 px-2 py-0.5 font-mono font-bold text-gray-900">
+              {item.code}{item.secondaryCode && ` • ${item.secondaryCode}`}
+            </span>
+            {item.faculty && <span className="text-gray-500">• {item.faculty}</span>}
           </div>
           <h3 className="mt-2 text-base font-bold text-gray-900 leading-tight">{item.title}</h3>
         </div>
@@ -484,7 +551,7 @@ function CourseCard({ item, index, onOpen }: { item: Course; index: number; onOp
       </div>
 
       <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-y border-gray-100 py-2.5 text-xs text-gray-600">
-        <span className="flex items-center gap-1"><Icon name="calendar" className="h-3.5 w-3.5" />{item.schedule}</span>
+        {item.schedule && <span className="flex items-center gap-1"><Icon name="calendar" className="h-3.5 w-3.5" />{item.schedule}</span>}
         <span>•</span>
         <span className="flex items-center gap-1"><Icon name="users" className="h-3.5 w-3.5" />Sĩ số: <b>{item.students}</b></span>
         <span>•</span>
@@ -492,59 +559,39 @@ function CourseCard({ item, index, onOpen }: { item: Course; index: number; onOp
       </div>
 
       <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs">
-        <span className="text-gray-600">Tiến độ khảo thí: <b>{item.exams}</b></span>
-        <b className={done ? 'text-emerald-700' : 'text-indigo-800'}>{item.submissions}</b>
+        <span className="text-gray-600">Bài tập đã tạo: <b>{item.assignmentCount}</b></span>
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-        <span className="text-gray-500 text-[11px]">AI Engine: <b className="text-gray-800">{item.engine}</b></span>
+        <span className="text-gray-500 text-[11px]">Chấm điểm AI: <b className="font-medium text-gray-700">Tạm hoãn</b></span>
         <span className="text-gray-700">Điểm TB: <b className="text-sm font-bold text-gray-900">{item.average}</b></span>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
-        <Link
-          href={`/teacher/classes/${item.code}`}
-          className="flex h-8 items-center gap-1.5 rounded-full border border-gray-300 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50"
-        >
-          <Icon name="roster" className="h-3.5 w-3.5 text-gray-500" />
-          Danh sách SV (Roster)
-        </Link>
+        {item.canEnter ? (
+          <>
+            <Link
+              href={`/teacher/classes/${item.id}`}
+              className="flex h-8 items-center gap-1.5 rounded-full border border-gray-300 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Icon name="roster" className="h-3.5 w-3.5 text-gray-500" />
+              Danh sách SV (Roster)
+            </Link>
 
-        <button
-          type="button"
-          onClick={onOpen}
-          className="flex h-8 items-center gap-1.5 rounded-full bg-black px-4 text-xs font-semibold text-white shadow-sm hover:bg-gray-800"
-        >
-          <Icon name="mic" className="h-3.5 w-3.5 text-indigo-400" />
-          Vào lớp &amp; Chấm thi
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function AdvisoryCard({ item }: { item: typeof advisoryClasses[number] }) {
-  const tone = item.accent === 'green';
-  return (
-    <article className="rounded-2xl border border-[#dedede] bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span className="rounded bg-gray-100 px-2 py-0.5 font-semibold text-gray-800">{item.term}</span>
-        <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${tone ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-indigo-300 bg-indigo-50 text-indigo-800'}`}>
-          {item.level}
-        </span>
-      </div>
-      <h3 className="mt-2 text-base font-bold text-gray-900">{item.title}</h3>
-      <div className="mt-3 rounded-xl border border-gray-100 bg-[#fafafa] p-3.5 text-xs">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <p className="text-gray-500 text-[11px]">Sĩ số cố vấn</p>
-            <p className="mt-0.5 font-bold text-gray-900">{item.count} sinh viên</p>
-          </div>
-          <div>
-            <p className="text-gray-500 text-[11px]">Ban cán sự lớp</p>
-            <p className="mt-0.5 font-bold text-gray-900">{item.leader}</p>
-          </div>
-        </div>
+            <button
+              type="button"
+              onClick={onOpen}
+              className="flex h-8 items-center gap-1.5 rounded-full bg-black px-4 text-xs font-semibold text-white shadow-sm hover:bg-gray-800"
+            >
+              <Icon name="mic" className="h-3.5 w-3.5 text-indigo-400" />
+              Vào lớp &amp; Chấm thi
+            </button>
+          </>
+        ) : (
+          <p role="status" className="text-xs font-medium text-amber-800">
+            Đang chờ duyệt — chưa thể vào lớp
+          </p>
+        )}
       </div>
     </article>
   );

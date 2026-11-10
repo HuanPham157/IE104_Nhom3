@@ -73,21 +73,15 @@ export default function StudentSidebar({
             Lớp học của tôi
           </Link>
 
-          <Link
-            href="/tasks"
-            className={`${itemClass} ${currentPage === 'tasks' ? activeClass : ''}`}
-          >
+          <Link href="/tasks" aria-current={currentPage === 'tasks' ? 'page' : undefined} className={`${itemClass} ${currentPage === 'tasks' ? activeClass : ''}`}>
             <SidebarIcon name="tasks" />
-            Bài tập oral
+            Việc cá nhân
           </Link>
 
-          <Link
-            href="/student/exam/CS102-MID-2024-03"
-            className={itemClass}
-          >
+          <button type="button" disabled title="Chức năng đang tạm hoãn" className={`${itemClass} cursor-not-allowed opacity-50`}>
             <SidebarIcon name="mic" />
-            Phòng thi vấn đáp AI
-          </Link>
+            Phòng thi AI (tạm hoãn)
+          </button>
 
           <Link
             href="/student/history"

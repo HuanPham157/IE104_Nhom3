@@ -1,100 +1,121 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import StudentSidebar from '@/components/StudentSidebar';
 import { supabase } from '@/lib/supabase-browser';
+import { getCachedProfile } from '@/lib/profile-cache';
+import { oralcheckFetch } from '@/lib/oralcheck-client';
 
 interface EnrolledClass {
   id: string;
   code: string;
   name: string;
   teacher: string;
-  teacherTitle: string;
-  semester: string;
   totalAssignments: number;
-  completedAssignments: number;
-  averageScore: number;
   nextDeadline: string;
   nextAssignmentTitle: string;
-  status: 'active' | 'completed';
+  status: 'active';
   accentColor: string;
 }
 
-const initialClasses: EnrolledClass[] = [
-  {
-    id: 'cs102',
-    code: 'CS102',
-    name: 'Lập trình Hướng đối tượng C++',
-    teacher: 'TS. Nguyễn Văn A',
-    teacherTitle: 'Khoa Khoa học Máy tính',
-    semester: 'HK1 • 2026-2027',
-    totalAssignments: 6,
-    completedAssignments: 4,
-    averageScore: 9.1,
-    nextDeadline: '23:59 - 25/11/2024',
-    nextAssignmentTitle: 'Vấn đáp giữa kỳ: Virtual DOM & OOP Design Patterns',
+interface ClassRecord {
+  id: string;
+  class_name: string;
+  class_code: string;
+  description: string | null;
+  lecturer_name: string | null;
+  status: 'active' | 'pending' | 'rejected' | 'archived';
+}
+
+interface AssignmentRecord {
+  id: string;
+  title: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  status: 'draft' | 'published' | 'closed' | 'archived';
+}
+
+function mapClass(item: ClassRecord, assignments: AssignmentRecord[]): EnrolledClass {
+  const publishedAssignments = assignments
+    .filter((assignment) => assignment.status === 'published')
+    .sort((a, b) => {
+      if (!a.ends_at) return 1;
+      if (!b.ends_at) return -1;
+      return new Date(a.ends_at).getTime() - new Date(b.ends_at).getTime();
+    });
+  const nextAssignment = publishedAssignments.find(
+    (assignment) => !assignment.ends_at || new Date(assignment.ends_at).getTime() >= Date.now(),
+  );
+  return {
+    id: item.id,
+    code: item.class_code,
+    name: item.class_name,
+    teacher: item.lecturer_name ?? 'Chưa cập nhật',
+    totalAssignments: publishedAssignments.length,
+    nextDeadline: nextAssignment?.ends_at
+      ? new Date(nextAssignment.ends_at).toLocaleString('vi-VN')
+      : 'Chưa thiết lập',
+    nextAssignmentTitle: nextAssignment?.title ?? 'Chưa có bài tập sắp đến hạn',
     status: 'active',
     accentColor: 'indigo',
-  },
-  {
-    id: 'it4409',
-    code: 'IT4409',
-    name: 'Kiến trúc Phần mềm Hiện đại',
-    teacher: 'ThS. Trần Thị Mai',
-    teacherTitle: 'Khoa Kỹ thuật Phần mềm',
-    semester: 'HK1 • 2026-2027',
-    totalAssignments: 5,
-    completedAssignments: 3,
-    averageScore: 8.5,
-    nextDeadline: '20:00 - 30/11/2024',
-    nextAssignmentTitle: 'Oral Check: Microservices & Event-Driven Architecture',
-    status: 'active',
-    accentColor: 'emerald',
-  },
-  {
-    id: 'it3080',
-    code: 'IT3080',
-    name: 'Hệ điều hành & Mạng máy tính',
-    teacher: 'PGS. TS. Lê Hoàng Nam',
-    teacherTitle: 'Khoa Kỹ thuật Máy tính',
-    semester: 'HK1 • 2026-2027',
-    totalAssignments: 4,
-    completedAssignments: 4,
-    averageScore: 8.8,
-    nextDeadline: 'Đã hoàn thành tất cả bài thi',
-    nextAssignmentTitle: 'Khảo thí cuối kỳ hoàn tất',
-    status: 'completed',
-    accentColor: 'blue',
-  },
-  {
-    id: 'ie104',
-    code: 'IE104',
-    name: 'Thiết kế Giao diện Người dùng',
-    teacher: 'ThS. Nguyễn Văn B',
-    teacherTitle: 'Khoa Hệ thống Thông tin',
-    semester: 'HK1 • 2026-2027',
-    totalAssignments: 4,
-    completedAssignments: 2,
-    averageScore: 9.0,
-    nextDeadline: '23:59 - 05/12/2024',
-    nextAssignmentTitle: 'Bảo vệ Đồ án: Trực quan hóa Giao diện Voice AI',
-    status: 'active',
-    accentColor: 'violet',
-  },
-];
+  };
+}
 
 export default function StudentClasses() {
   const router = useRouter();
-  const [classes, setClasses] = useState<EnrolledClass[]>(initialClasses);
+  const [classes, setClasses] = useState<EnrolledClass[]>([]);
+  const [fullName, setFullName] = useState('');
+  const [institutionalId, setInstitutionalId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterTab, setFilterTab] = useState<'all' | 'active' | 'completed'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'active'>('all');
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [classCodeInput, setClassCodeInput] = useState('');
   const [joinError, setJoinError] = useState('');
   const [joinSuccess, setJoinSuccess] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        const user = session?.user;
+        if (!user) {
+          router.replace('/login');
+          return;
+        }
+        const [profile, response] = await Promise.all([
+          getCachedProfile(user.id),
+          oralcheckFetch<{ data: ClassRecord[] }>('/api/classes'),
+        ]);
+        if (profile.role !== 'student') {
+          router.replace('/teacher');
+          return;
+        }
+        if (!active) return;
+        setFullName(profile.full_name ?? '');
+        setInstitutionalId(profile.institutional_id ?? '');
+        const mappedClasses = await Promise.all(response.data.map(async (item) => {
+          const { data: assignments } = await oralcheckFetch<{ data: AssignmentRecord[] }>(
+            `/api/classes/${item.id}/assignments`,
+          );
+          return mapClass(item, assignments);
+        }));
+        if (active) setClasses(mappedClasses);
+      } catch (error) {
+        if (active) setErrorMessage(error instanceof Error ? error.message : 'Không thể tải lớp học.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, [router]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -103,7 +124,7 @@ export default function StudentClasses() {
     router.refresh();
   }
 
-  function handleJoinClass(e: React.FormEvent) {
+  async function handleJoinClass(e: React.FormEvent) {
     e.preventDefault();
     setJoinError('');
     setJoinSuccess('');
@@ -113,34 +134,24 @@ export default function StudentClasses() {
       return;
     }
 
-    if (classes.some((c) => c.code === code)) {
-      setJoinError('Bạn đã tham gia lớp học này rồi.');
-      return;
-    }
-
-    const newClass: EnrolledClass = {
-      id: code.toLowerCase(),
-      code: code,
-      name: code === 'AIO-8892' ? 'KTPM-K20: Kiến trúc Phần mềm Phân tán' : `Học phần khảo thí (${code})`,
-      teacher: 'TS. Nguyễn Văn A',
-      teacherTitle: 'Khoa Công nghệ Thông tin',
-      semester: 'HK1 • 2026-2027',
-      totalAssignments: 3,
-      completedAssignments: 0,
-      averageScore: 0,
-      nextDeadline: '23:59 - 15/12/2024',
-      nextAssignmentTitle: 'Bài tập 01: Giới thiệu Kiến trúc & Nhận dạng giọng nói',
-      status: 'active',
-      accentColor: 'indigo',
-    };
-
-    setClasses([newClass, ...classes]);
-    setJoinSuccess(`Tham gia lớp học ${newClass.code} thành công!`);
-    setTimeout(() => {
-      setShowJoinModal(false);
+    try {
+      await oralcheckFetch('/api/classes/join', {
+        method: 'POST',
+        body: JSON.stringify({ class_code: code }),
+      });
+      setJoinSuccess(`Đã tham gia lớp ${code}.`);
       setClassCodeInput('');
-      setJoinSuccess('');
-    }, 1200);
+      const { data } = await oralcheckFetch<{ data: ClassRecord[] }>('/api/classes');
+      const refreshedClasses = await Promise.all(data.map(async (item) => {
+        const { data: assignments } = await oralcheckFetch<{ data: AssignmentRecord[] }>(
+          `/api/classes/${item.id}/assignments`,
+        );
+        return mapClass(item, assignments);
+      }));
+      setClasses(refreshedClasses);
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : 'Không thể tham gia lớp học.');
+    }
   }
 
   const filteredClasses = classes
@@ -153,18 +164,14 @@ export default function StudentClasses() {
     );
 
   const totalClassesCount = classes.length;
-  const totalPendingAssignments = classes.reduce(
-    (sum, c) => sum + (c.totalAssignments - c.completedAssignments),
-    0
-  );
-  const totalCompletedAssignments = classes.reduce((sum, c) => sum + c.completedAssignments, 0);
+  const totalPublishedAssignments = classes.reduce((sum, c) => sum + c.totalAssignments, 0);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-[#1a1c1c] antialiased">
       <StudentSidebar
         currentPage="classes"
-        fullName="Sinh viên A"
-        institutionalId="21520001"
+        fullName={fullName || 'Sinh viên'}
+        institutionalId={institutionalId}
         signingOut={signingOut}
         interactiveUnavailable
         onSignOut={handleSignOut}
@@ -203,9 +210,6 @@ export default function StudentClasses() {
           {/* Hero Banner */}
           <div className="mb-6 flex flex-col justify-between gap-4 border-b border-gray-200 pb-6 sm:flex-row sm:items-end">
             <div>
-              <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-800">
-                HỌC KỲ I • 2026-2027
-              </span>
               <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
                 Lớp học của tôi &amp; Kế hoạch học tập
               </h1>
@@ -213,15 +217,6 @@ export default function StudentClasses() {
                 Quản lý các học phần đang tham gia, tiến độ nộp bài vấn đáp oral và lịch nhắc hạn nộp (deadline) thời gian thực.
               </p>
             </div>
-            <button
-              onClick={() => setShowJoinModal(true)}
-              className="inline-flex items-center gap-2 self-start rounded-full border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50 sm:self-auto"
-            >
-              <svg className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
-              Nhập mã Class Code
-            </button>
           </div>
 
           {/* Quick Metrics */}
@@ -234,29 +229,28 @@ export default function StudentClasses() {
                 <span className="text-3xl font-extrabold text-gray-900">{totalClassesCount}</span>
                 <span className="text-xs text-gray-500">học phần</span>
               </div>
-              <p className="mt-1 text-xs text-emerald-700">✓ 100% tài khoản đã đồng bộ Voiceprint</p>
+              <p className="mt-1 text-xs text-gray-500">Các lớp đã tham gia</p>
             </div>
 
             <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-800">
-                Bài tập chưa hoàn thành
+                Bài tập đã công bố
               </span>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-amber-900">{totalPendingAssignments}</span>
-                <span className="text-xs text-amber-700">bài cần nộp</span>
+                <span className="text-3xl font-extrabold text-amber-900">{totalPublishedAssignments}</span>
+                <span className="text-xs text-amber-700">bài tập</span>
               </div>
-              <p className="mt-1 text-xs text-amber-800">Lưu ý kiểm tra Micro trước khi vào phòng thi</p>
+              <p className="mt-1 text-xs text-amber-800">Bài nháp không được hiển thị cho sinh viên</p>
             </div>
 
             <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-800">
-                Bài thi oral đã nộp
+                Nộp bài &amp; điểm số
               </span>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-indigo-900">{totalCompletedAssignments}</span>
-                <span className="text-xs text-indigo-700">đã chấm điểm</span>
+                <span className="text-lg font-extrabold text-indigo-900">Chưa bật</span>
               </div>
-              <p className="mt-1 text-xs text-indigo-800">Điểm trung bình AI: 8.85 / 10.0</p>
+              <p className="mt-1 text-xs text-indigo-800">Ghi âm, camera và AI đang được tạm hoãn</p>
             </div>
           </div>
 
@@ -278,14 +272,6 @@ export default function StudentClasses() {
                 }`}
               >
                 Đang diễn ra ({classes.filter((c) => c.status === 'active').length})
-              </button>
-              <button
-                onClick={() => setFilterTab('completed')}
-                className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
-                  filterTab === 'completed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Đã hoàn tất ({classes.filter((c) => c.status === 'completed').length})
               </button>
             </div>
 
@@ -309,9 +295,10 @@ export default function StudentClasses() {
           </div>
 
           {/* Class Cards Grid */}
+          {errorMessage && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{errorMessage}</p>}
+          {loading && <p className="mb-4 text-sm text-gray-500">Đang tải lớp học...</p>}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {filteredClasses.map((item) => {
-              const progressPct = Math.round((item.completedAssignments / item.totalAssignments) * 100);
               return (
                 <div
                   key={item.id}
@@ -324,7 +311,7 @@ export default function StudentClasses() {
                         <span className="rounded-lg bg-gray-100 px-2.5 py-1 font-mono text-xs font-bold text-gray-900">
                           {item.code}
                         </span>
-                        <span className="text-xs text-gray-500">{item.semester}</span>
+                        <span className="text-xs text-gray-500">{item.totalAssignments} bài tập đã công bố</span>
                       </div>
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
@@ -333,7 +320,7 @@ export default function StudentClasses() {
                             : 'border border-gray-200 bg-gray-100 text-gray-600'
                         }`}
                       >
-                        {item.status === 'active' ? 'Đang học' : 'Đã kết thúc'}
+                        Đang học
                       </span>
                     </div>
 
@@ -346,30 +333,12 @@ export default function StudentClasses() {
                       </h2>
                     </Link>
                     <p className="mt-1 text-xs text-gray-600">
-                      Giảng viên: <span className="font-medium text-gray-900">{item.teacher}</span> • {item.teacherTitle}
+                      Giảng viên: <span className="font-medium text-gray-900">{item.teacher}</span>
                     </p>
 
-                    {/* Progress Bar */}
-                    <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-3.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600">
-                          Tiến độ bài tập: <b>{item.completedAssignments}/{item.totalAssignments}</b>
-                        </span>
-                        <span className="font-semibold text-gray-900">{progressPct}%</span>
-                      </div>
-                      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                        <div
-                          className="h-full rounded-full bg-black transition-all duration-300"
-                          style={{ width: `${progressPct}%` }}
-                        />
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500">
-                        <span>Điểm trung bình oral:</span>
-                        <span className="font-bold text-gray-900">
-                          {item.averageScore > 0 ? `${item.averageScore} / 10.0` : 'Chưa có điểm'}
-                        </span>
-                      </div>
-                    </div>
+                    <p className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3.5 text-xs text-gray-600">
+                      Tiến độ nộp bài và điểm số sẽ hiển thị khi chức năng nộp bài được triển khai.
+                    </p>
 
                     {/* Next assignment announcement */}
                     <div className="mt-3 flex items-start gap-2 rounded-xl border border-indigo-100 bg-[#f8f9ff] p-3 text-xs">
@@ -392,26 +361,16 @@ export default function StudentClasses() {
                       >
                         Chi tiết lớp &amp; Bài tập →
                       </Link>
-                      <Link
-                        href="/student/history"
-                        className="text-xs font-semibold text-gray-500 hover:text-black transition"
-                      >
-                        Xem điểm
-                      </Link>
                     </div>
-                    <Link
-                      href="/student/exam/CS102-MID-2024-03"
-                      className="inline-flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white transition hover:bg-gray-800"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
-                      </svg>
-                      Vào làm bài Oral
-                    </Link>
                   </div>
                 </div>
               );
             })}
+            {!loading && filteredClasses.length === 0 && (
+              <p className="col-span-full rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
+                Bạn chưa tham gia lớp học nào. Nhập mã do giảng viên cung cấp để tham gia.
+              </p>
+            )}
           </div>
 
           {filteredClasses.length === 0 && (
@@ -423,12 +382,6 @@ export default function StudentClasses() {
               <p className="mt-1 text-xs text-gray-500">
                 Thử kiểm tra lại từ khóa tìm kiếm hoặc tham gia lớp học mới bằng mã code do giảng viên cung cấp.
               </p>
-              <button
-                onClick={() => setShowJoinModal(true)}
-                className="mt-4 inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800"
-              >
-                Tham gia lớp bằng mã
-              </button>
             </div>
           )}
         </main>
@@ -465,10 +418,11 @@ export default function StudentClasses() {
               </p>
 
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-700">
+                <label htmlFor="class-code-input" className="block text-[11px] font-semibold uppercase tracking-wider text-gray-700">
                   Mã lớp học (Class Code) *
                 </label>
                 <input
+                  id="class-code-input"
                   type="text"
                   required
                   placeholder="VD: AIO-8892"

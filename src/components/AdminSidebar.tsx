@@ -11,72 +11,54 @@ interface AdminSidebarProps {
 
 export default function AdminSidebar({ currentPage }: AdminSidebarProps) {
   const itemClass =
-    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all';
-  const activeClass =
-    'bg-black text-white shadow-xs';
-  const inactiveClass =
-    'text-gray-600 hover:bg-gray-100 hover:text-black';
+    'flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[12px] text-gray-600 transition hover:bg-gray-100 hover:text-black';
+  const activeClass = 'border-l-2 border-black bg-[#ededed] font-semibold text-[#202124]';
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-gray-200 bg-white p-4 md:flex justify-between">
-      <div className="space-y-5">
-        {/* Logo */}
-        <Link href="/admin" className="flex items-center gap-2.5 px-2">
-          <span className="w-8 h-8 rounded-lg bg-black text-white flex items-center justify-center font-bold text-sm shadow-xs">
-            🛡️
+    <aside className="fixed inset-y-0 left-0 z-20 hidden w-[255px] flex-col border-r border-[#e6e6e6] bg-[#fbfbfb] md:flex">
+      <div className="flex h-[72px] shrink-0 items-center gap-3 border-b border-[#e8e8e8] px-6">
+        <Link href="/admin" className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#111] text-white">
+            <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24">
+              <path d="M12 3 20 6v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-3z M9 12l2 2 4-4" />
+            </svg>
           </span>
-          <div>
-            <span className="font-black text-sm tracking-tight text-[#111827] block leading-none">
+          <span>
+            <b className="block text-[15px] leading-tight">
               AIOralCheck
-            </span>
-            <span className="text-[9px] text-gray-500 font-semibold tracking-wide">
-              ADMIN CONTROL PANEL
-            </span>
-          </div>
+            </b>
+            <span className="text-[10px] text-gray-500">Cổng Quản trị viên</span>
+          </span>
         </Link>
+      </div>
 
-        {/* Live Admin Telemetry Pill */}
-        <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-1.5">
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="text-gray-500">Hạ tầng AI:</span>
-            <span className="font-bold text-emerald-700 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Sẵn sàng 100%
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-[10px] text-gray-600 font-mono">
-            <span>CoreAudio 48kHz</span>
-            <span className="font-semibold text-gray-900">Latency: 12ms</span>
-          </div>
-        </div>
-
-        {/* Nav Items */}
-        <nav className="space-y-1">
+      <nav aria-label="Điều hướng quản trị" className="flex flex-1 flex-col px-4 py-4">
+        <div className="space-y-1">
           <Link
             href="/admin"
-            className={`${itemClass} ${currentPage === 'overview' ? activeClass : inactiveClass}`}
+            aria-current={currentPage === 'overview' ? 'page' : undefined}
+            className={`${itemClass} ${currentPage === 'overview' ? activeClass : ''}`}
           >
-            <span>📊</span>
+            <span aria-hidden="true">📊</span>
             <span>Tổng quan hệ thống</span>
           </Link>
 
           <Link
             href="/admin/classes"
-            className={`${itemClass} ${currentPage === 'classes' ? activeClass : inactiveClass}`}
+            aria-current={currentPage === 'classes' ? 'page' : undefined}
+            className={`${itemClass} ${currentPage === 'classes' ? activeClass : ''}`}
           >
-            <span>🏫</span>
+            <span aria-hidden="true">🏫</span>
             <span>Quản trị Lớp &amp; Phân bổ AI</span>
           </Link>
 
           <Link
-            href="/admin/approvals"
-            className={`${itemClass} ${currentPage === 'approvals' ? activeClass : inactiveClass}`}
+            href="/admin/approvals#approval-requests"
+            aria-current={currentPage === 'approvals' ? 'page' : undefined}
+            className={`${itemClass} ${currentPage === 'approvals' ? activeClass : ''}`}
           >
-            <span>⚖️</span>
+            <span aria-hidden="true">⚖️</span>
             <span>Duyệt lớp &amp; Học vị GV</span>
-            <span className="ml-auto px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[9px] font-bold">
-              3 chờ
-            </span>
           </Link>
 
           <Link
@@ -86,58 +68,52 @@ export default function AdminSidebar({ currentPage }: AdminSidebarProps) {
               const el = document.getElementById('user-management-section');
               el?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className={`${itemClass} ${currentPage === 'users' ? activeClass : inactiveClass}`}
+            aria-current={currentPage === 'users' ? 'page' : undefined}
+            className={`${itemClass} ${currentPage === 'users' ? activeClass : ''}`}
           >
-            <span>👥</span>
+            <span aria-hidden="true">👥</span>
             <span>Quản lý Người dùng</span>
           </Link>
 
-          <div className="pt-2 border-t border-gray-100">
-            <span className="px-3 text-[10px] font-bold uppercase text-gray-400 block mb-1">
-              Chuyển nhanh phân hệ
+          <div className="mt-4 border-t border-[#e6e6e6] pt-4">
+            <span className="mb-1 block px-3 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+              Phân hệ
             </span>
             <Link
-              href="/teacher"
-              className={`${itemClass} ${inactiveClass}`}
+              href="/teacher/classes"
+              className={itemClass}
             >
-              <span>🎓</span>
-              <span>Cổng Giảng viên</span>
+              <span aria-hidden="true">🎓</span>
+              <span>Quản lý lớp &amp; bài tập</span>
             </Link>
 
             <Link
               href="/student"
-              className={`${itemClass} ${inactiveClass}`}
+              className={itemClass}
             >
-              <span>🎒</span>
+              <span aria-hidden="true">🎒</span>
               <span>Cổng Sinh viên</span>
             </Link>
           </div>
-        </nav>
-      </div>
-
-      {/* Footer User Info */}
-      <div className="pt-4 border-t border-gray-200 space-y-3">
-        <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl bg-gray-50 border border-gray-200">
-          <span className="w-8 h-8 rounded-full bg-black text-white font-bold text-xs flex items-center justify-center shrink-0">
-            AD
-          </span>
-          <div className="min-w-0 flex-1">
-            <span className="block truncate text-xs font-bold text-gray-900 leading-tight">
-              Admin Hệ Thống
-            </span>
-            <span className="block truncate text-[10px] text-gray-500">
-              admin@aioralcheck.edu.vn
-            </span>
-          </div>
         </div>
 
-        <Link
-          href="/login"
-          className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition"
-        >
-          <span>Đăng xuất Admin</span>
-        </Link>
-      </div>
+        <div className="mt-auto -mx-4 border-t border-[#e6e6e6] px-4 pt-4">
+          <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-[#e4e4e4] bg-white p-2.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-bold">AD</span>
+            <span className="min-w-0 flex-1">
+              <b className="block truncate text-[10px]">Quản trị viên</b>
+              <span className="block truncate text-[9px] text-gray-500">Quyền quản trị hệ thống</span>
+            </span>
+          </div>
+
+          <Link
+            href="/login"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e4e4e4] bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
+          >
+            <span>Đăng xuất</span>
+          </Link>
+        </div>
+      </nav>
     </aside>
   );
 }

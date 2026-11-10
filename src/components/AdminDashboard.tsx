@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AdminSidebar from '@/components/AdminSidebar';
+import { oralcheckFetch } from '@/lib/oralcheck-client';
 
 interface ApprovalItem {
   id: string;
-  type: 'class' | 'academic_rank';
+  type: 'class' | 'class_cancellation' | 'academic_rank';
   title: string;
   requestedBy: string;
   department: string;
@@ -27,110 +28,78 @@ interface UserAccount {
   createdDate: string;
 }
 
-const initialApprovals: ApprovalItem[] = [
-  {
-    id: 'req-1',
-    type: 'academic_rank',
-    title: 'Cập nhật Học hàm / Học vị Giảng viên',
-    requestedBy: 'ThS. Nguyễn Văn B',
-    department: 'Khoa Khoa học Máy tính',
-    date: 'Hôm nay, 08:30',
-    details: 'Đề xuất nâng cấp học vị từ Thạc sĩ (Th.S) lên Tiến sĩ (TS.) theo Quyết định công nhận số 104/QĐ-ĐHQG.',
-    status: 'pending',
-  },
-  {
-    id: 'req-2',
-    type: 'class',
-    title: 'Đăng ký Mở Lớp học Khảo thí mới: KTPM-K20',
-    requestedBy: 'TS. Nguyễn Văn A',
-    department: 'Khoa Công nghệ Phần mềm',
-    date: 'Hôm qua, 15:45',
-    details: 'Môn: Kiến trúc Phần mềm Nâng cao • Sĩ số dự kiến: 45 SV • Thời lượng: 15 tuần • Chuẩn Barem AI: SE-ARCH-V2.',
-    status: 'pending',
-  },
-  {
-    id: 'req-3',
-    type: 'class',
-    title: 'Đăng ký Mở Lớp học Khảo thí mới: CS102',
-    requestedBy: 'TS. Lê Hoàng C',
-    department: 'Khoa Khoa học Máy tính',
-    date: '28/10/2024',
-    details: 'Môn: Lập trình C++ Nâng cao & Cấu trúc Dữ liệu • Sĩ số dự kiến: 56 SV • Khảo thí trực tuyến giữa kỳ.',
-    status: 'pending',
-  },
-];
+interface ApprovalRecord {
+  id: string;
+  requester_id: string;
+  requester_name: string;
+  request_type: string;
+  request_data: { class_name?: string; class_code?: string; reason?: string } | null;
+  status: 'pending' | 'approved' | 'rejected';
+  reject_reason: string | null;
+  created_at: string;
+}
 
-const initialUsers: UserAccount[] = [
-  {
-    id: 'u-1',
-    name: 'TS. Nguyễn Văn A',
-    email: 'nguyenvana@uit.edu.vn',
-    role: 'teacher',
-    identifier: 'GV-10204',
-    department: 'Khoa Công nghệ Phần mềm',
-    status: 'active',
-    createdDate: '15/09/2024',
-  },
-  {
-    id: 'u-2',
-    name: 'ThS. Trần Mai Lan',
-    email: 'mailan.t@uit.edu.vn',
-    role: 'teacher',
-    identifier: 'GV-10512',
-    department: 'Khoa Hệ thống Thông tin',
-    status: 'active',
-    createdDate: '18/09/2024',
-  },
-  {
-    id: 'u-3',
-    name: 'Lê Thị Bình (User A)',
-    email: 'usera@gm.uit.edu.vn',
-    role: 'student',
-    identifier: '21520001',
-    department: 'Khoa Khoa học Máy tính',
-    status: 'active',
-    createdDate: '12/10/2024',
-  },
-  {
-    id: 'u-4',
-    name: 'Trần Minh Đức',
-    email: 'duc.tm@sv.edu.vn',
-    role: 'student',
-    identifier: '20210345',
-    department: 'Khoa Kỹ thuật Phần mềm',
-    status: 'active',
-    createdDate: '14/10/2024',
-  },
-  {
-    id: 'u-5',
-    name: 'Phạm Quốc Cường',
-    email: 'cuong.pq@sv.edu.vn',
-    role: 'student',
-    identifier: '20215542',
-    department: 'Khoa Khoa học Máy tính',
-    status: 'suspended',
-    createdDate: '20/10/2024',
-  },
-];
-
-export default function AdminDashboard() {
-  const [approvals, setApprovals] = useState<ApprovalItem[]>(initialApprovals);
-  const [users, setUsers] = useState<UserAccount[]>(initialUsers);
+export default function AdminDashboard({ currentPage = 'overview' }: { currentPage?: 'overview' | 'approvals' }) {
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [users, setUsers] = useState<UserAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'teacher' | 'student'>('all');
 
   // State Modal Từ chối
   const [rejectingItem, setRejectingItem] = useState<ApprovalItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
-  const [sendNotification, setSendNotification] = useState(true);
   const [toastMessage, setToastMessage] = useState('');
 
+  useEffect(() => {
+    let active = true;
+    oralcheckFetch<{ data: ApprovalRecord[] }>('/api/admin/approval-requests')
+      .then(({ data }) => {
+        if (!active) return;
+        setApprovals(data.map((item) => ({
+          id: item.id,
+          type: item.request_type === 'class_cancellation' ? 'class_cancellation' : 'class',
+          title: item.request_type === 'class_cancellation'
+            ? `Yêu cầu hủy lớp: ${item.request_data?.class_name ?? 'Lớp học'}`
+            : item.request_data?.class_name ?? 'Yêu cầu mở lớp',
+          requestedBy: item.requester_name,
+          department: '—',
+          date: new Date(item.created_at).toLocaleString('vi-VN'),
+          details: [
+            item.request_data?.class_code ? `Mã lớp: ${item.request_data.class_code}` : '',
+            item.request_data?.reason ?? '',
+          ].filter(Boolean).join(' • '),
+          status: item.status,
+          rejectionReason: item.reject_reason ?? undefined,
+        })));
+      })
+      .catch((error: unknown) => {
+        if (active) setErrorMessage(error instanceof Error ? error.message : 'Không thể tải yêu cầu phê duyệt.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (currentPage !== 'approvals') return;
+    document.getElementById('approval-requests')?.scrollIntoView();
+  }, [currentPage]);
+
   // Hàm Phê duyệt
-  const handleApprove = (id: string) => {
-    setApprovals((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: 'approved' } : item))
-    );
-    showToast('✅ Đã phê duyệt yêu cầu thành công!');
+  const handleApprove = async (id: string) => {
+    try {
+      await oralcheckFetch(`/api/admin/approval-requests/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ decision: 'approved' }),
+      });
+      setApprovals((prev) => prev.map((item) => item.id === id ? { ...item, status: 'approved' } : item));
+      showToast('Đã phê duyệt yêu cầu thành công.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể phê duyệt yêu cầu.');
+    }
   };
 
   // Mở modal từ chối
@@ -138,23 +107,33 @@ export default function AdminDashboard() {
     setRejectingItem(item);
     setRejectReason(
       item.type === 'class'
-        ? 'Vui lòng bổ sung đề cương chi tiết học phần và thời khóa biểu phòng Lab theo chuẩn phòng Đào tạo.'
+        ? 'Vui lòng bổ sung thông tin cần thiết cho yêu cầu mở lớp.'
+        : item.type === 'class_cancellation'
+        ? 'Yêu cầu hủy lớp chưa được chấp thuận. Vui lòng liên hệ quản trị viên để biết thêm chi tiết.'
         : 'Văn bằng Tiến sĩ chưa có bản scan công chứng rõ nét. Vui lòng nộp lại hồ sơ.'
     );
   };
 
   // Xác nhận từ chối
-  const confirmReject = () => {
+  const confirmReject = async () => {
     if (!rejectingItem) return;
-    setApprovals((prev) =>
-      prev.map((item) =>
-        item.id === rejectingItem.id
-          ? { ...item, status: 'rejected', rejectionReason: rejectReason }
-          : item
-      )
-    );
-    setRejectingItem(null);
-    showToast('⚠️ Đã từ chối yêu cầu và gửi phản hồi lý do cho người dùng.');
+    try {
+      await oralcheckFetch(`/api/admin/approval-requests/${rejectingItem.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ decision: 'rejected', reject_reason: rejectReason }),
+      });
+      setApprovals((prev) => rejectingItem.type === 'class'
+        ? prev.filter((item) => item.id !== rejectingItem.id)
+        : prev.map((item) =>
+          item.id === rejectingItem.id ? { ...item, status: 'rejected', rejectionReason: rejectReason } : item
+        ));
+      setRejectingItem(null);
+      showToast(rejectingItem.type === 'class'
+        ? 'Lớp đã bị từ chối; lịch sử và thông báo lý do đã được lưu.'
+        : 'Đã từ chối yêu cầu và gửi phản hồi lý do.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể từ chối yêu cầu.');
+    }
   };
 
   // Đổi trạng thái khóa / mở khóa tài khoản
@@ -186,116 +165,71 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#1a1c1c] font-sans antialiased text-xs flex">
+    <div className="min-h-screen bg-[#f8f8f8] text-[#202124] font-sans antialiased text-xs flex">
       {/* Sidebar Admin */}
-      <AdminSidebar currentPage="overview" />
+      <AdminSidebar currentPage={currentPage} />
 
       {/* Main Workspace */}
-      <div className="flex-1 md:ml-64 flex flex-col min-w-0">
+      <div className="flex-1 min-w-0 md:ml-[255px]">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-200 px-6 py-3.5 flex items-center justify-between">
+        <header className="sticky top-0 z-10 flex min-h-[64px] items-center justify-between gap-3 border-b border-[#e5e5e5] bg-white/95 px-5 backdrop-blur sm:px-8">
           <div className="flex items-center gap-2 text-[11px] text-gray-500">
-            <span className="font-semibold text-gray-900">AIOralCheck</span>
+            <span className="font-semibold text-gray-900">Quản trị viên</span>
             <span>/</span>
             <span>Hệ thống Quản trị Trung tâm</span>
             <span>/</span>
-            <strong className="text-black font-bold">Giám sát &amp; Phân quyền</strong>
+            <strong className="font-bold text-gray-900">
+            {currentPage === 'approvals' ? 'Duyệt yêu cầu' : 'Tổng quan hệ thống'}
+            </strong>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] text-emerald-800 font-semibold shadow-2xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>SLA AI Inference: 4.2s (Đạt chuẩn)</span>
-            </div>
-
-            <Link
-              href="/teacher"
-              className="px-3.5 py-1.5 rounded-full border border-gray-300 bg-white hover:bg-gray-100 font-bold text-[11px] text-gray-800 transition"
-            >
-              Chuyển vai trò ⇄
-            </Link>
-          </div>
+          <Link
+            href="/admin/approvals#approval-requests"
+            className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[10px] text-gray-600 hover:bg-gray-100"
+          >
+            Yêu cầu duyệt
+          </Link>
         </header>
 
         {/* Content Body */}
-        <main className="p-5 lg:p-7 max-w-7xl w-full mx-auto space-y-6">
+        <main className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-10 pt-5 sm:px-8 sm:pt-6">
+          {errorMessage && (
+            <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {errorMessage}
+            </p>
+          )}
           {/* HEADER TITLE */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-gray-200">
             <div>
-              <h1 className="text-2xl font-black text-[#111827] tracking-tight">
-                Giám sát Hệ thống &amp; Quản lý Phân quyền
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                {currentPage === 'approvals' ? 'Duyệt yêu cầu lớp học' : 'Tổng quan quản trị'}
               </h1>
-              <p className="text-gray-500 text-xs mt-1">
-                Quản lý định danh học viện, phê duyệt mở lớp học phần và giám sát tài nguyên suy luận AI âm thanh.
+              <p className="mt-1 text-sm text-gray-600">
+                Quản lý yêu cầu mở lớp, tài khoản và quyền truy cập hệ thống.
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => showToast('Đang kết xuất tệp nhật ký Audit Log...')}
-                className="px-4 py-2 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition"
-              >
-                <span>📥</span> Xuất báo cáo Audit
-              </button>
-            </div>
           </div>
 
-          {/* KPI TELEMETRY GRID (4 CARDS) */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tổng tài khoản</span>
-              <div className="mt-2 flex items-baseline gap-2">
-                <strong className="text-3xl font-black text-gray-900">1,420</strong>
-                <span className="text-gray-500 font-medium">user</span>
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Yêu cầu mở lớp đang chờ</span>
+              <div className="mt-2 text-3xl font-black text-gray-900">
+                {approvals.filter((item) => item.status === 'pending').length}
               </div>
-              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-[10px] text-gray-600">
-                <span>48 Giảng viên</span>
-                <span>•</span>
-                <span>1,372 Sinh viên</span>
-              </div>
+              <p className="mt-2 border-t border-gray-100 pt-2 text-[10px] text-gray-600">Số liệu từ API phê duyệt lớp học</p>
             </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lượt nộp bài tháng này</span>
-              <div className="mt-2 flex items-baseline gap-2">
-                <strong className="text-3xl font-black text-gray-900">8,650</strong>
-                <span className="text-emerald-700 font-bold text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">98.4%</span>
-              </div>
-              <div className="mt-2 pt-2 border-t border-gray-100 text-[10px] text-emerald-700 font-semibold">
-                ✓ Hoàn thành đúng hạn khảo thí
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tiêu thụ Token AI</span>
-              <div className="mt-2 flex items-baseline gap-2">
-                <strong className="text-3xl font-black text-indigo-700">14.8M</strong>
-                <span className="text-gray-500 font-medium">tokens</span>
-              </div>
-              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-[10px] text-gray-600 font-mono">
-                <span>Whisper: 340h</span>
-                <span>•</span>
-                <span>LLM: 12.2M</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Độ trễ AI trung bình</span>
-              <div className="mt-2 flex items-baseline gap-2">
-                <strong className="text-3xl font-black text-emerald-600">4.2s</strong>
-                <span className="text-gray-500 font-medium">/ lượt</span>
-              </div>
-              <div className="mt-2 pt-2 border-t border-gray-100 text-[10px] text-emerald-700 font-semibold">
-                ✓ Đạt SLA phòng đào tạo (&lt; 15s)
-              </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tài khoản trong danh sách</span>
+              <div className="mt-2 text-3xl font-black text-gray-900">{users.length}</div>
+              <p className="mt-2 border-t border-gray-100 pt-2 text-[10px] text-gray-600">Chức năng quản lý tài khoản chưa được kết nối</p>
             </div>
           </section>
 
           {/* ========================================================= */}
           {/* PHẦN 1: DANH SÁCH DUYỆT LỚP HỌC & HỌC VỊ (QUAN TRỌNG NHẤT) */}
           {/* ========================================================= */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
+          <section id="approval-requests" className="scroll-mt-24 bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2.5">
                 <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center font-bold text-sm">
@@ -306,7 +240,7 @@ export default function AdminDashboard() {
                     Danh sách Yêu cầu chờ Quản trị viên Phê duyệt
                   </h2>
                   <p className="text-[11px] text-gray-500">
-                    Phê duyệt tạo lớp học phần mới và xét duyệt cập nhật học hàm/học vị của Giảng viên.
+                    Xử lý yêu cầu mở lớp và yêu cầu hủy lớp do giảng viên gửi.
                   </p>
                 </div>
               </div>
@@ -317,6 +251,12 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-3">
+              {loading && <p className="p-4 text-sm text-gray-500">Đang tải yêu cầu phê duyệt...</p>}
+              {!loading && approvals.length === 0 && (
+                <p className="rounded-xl border border-dashed border-gray-300 p-5 text-sm text-gray-500">
+                  Hiện chưa có yêu cầu nào cần phê duyệt.
+                </p>
+              )}
               {approvals.map((item) => (
                 <article
                   key={item.id}
@@ -334,9 +274,15 @@ export default function AdminDashboard() {
                         <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
                           item.type === 'class'
                             ? 'bg-indigo-100 text-indigo-800'
+                            : item.type === 'class_cancellation'
+                            ? 'bg-red-100 text-red-800'
                             : 'bg-purple-100 text-purple-800'
                         }`}>
-                          {item.type === 'class' ? 'MỞ LỚP MỚI' : 'HỌC HÀM / HỌC VỊ'}
+                          {item.type === 'class'
+                            ? 'MỞ LỚP MỚI'
+                            : item.type === 'class_cancellation'
+                            ? 'YÊU CẦU HỦY LỚP'
+                            : 'HỌC HÀM / HỌC VỊ'}
                         </span>
                         <strong className="text-xs font-bold text-gray-900">{item.title}</strong>
                         <span className="text-[10px] text-gray-400 font-mono">• {item.date}</span>
@@ -422,7 +368,7 @@ export default function AdminDashboard() {
 
                 <select
                   value={userRoleFilter}
-                  onChange={(e) => setUserRoleFilter(e.target.value as any)}
+                  onChange={(e) => setUserRoleFilter(e.target.value as 'all' | 'teacher' | 'student')}
                   className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs bg-white focus:outline-none"
                 >
                   <option value="all">Tất cả vai trò</option>
@@ -446,6 +392,13 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
+                  {filteredUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-5 text-center text-sm text-gray-500">
+                        Chức năng quản lý tài khoản chưa được kết nối. Không có dữ liệu mẫu được hiển thị.
+                      </td>
+                    </tr>
+                  )}
                   {filteredUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50/50">
                       <td className="py-3 px-4">
@@ -509,11 +462,16 @@ export default function AdminDashboard() {
       {/* ========================================================= */}
       {rejectingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-gray-200 space-y-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reject-approval-title"
+            className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-gray-200 space-y-4"
+          >
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2 text-red-600 font-bold text-sm">
                 <span>⚠️</span>
-                <span>Từ chối yêu cầu phê duyệt</span>
+                <span id="reject-approval-title">Từ chối yêu cầu phê duyệt</span>
               </div>
               <button
                 type="button"
@@ -542,15 +500,9 @@ export default function AdminDashboard() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={sendNotification}
-                onChange={(e) => setSendNotification(e.target.checked)}
-                className="rounded border-gray-300 text-black focus:ring-0"
-              />
-              <span>Gửi thông báo email và hệ thống kèm lý do cho Giảng viên</span>
-            </label>
+            <p className="text-xs text-gray-600">
+              Giảng viên sẽ nhận thông báo trong hệ thống kèm lý do từ chối.
+            </p>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t">
               <button
@@ -574,7 +526,7 @@ export default function AdminDashboard() {
 
       {/* TOAST THÔNG BÁO NHANH */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[#111827] text-white px-4 py-2.5 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 bg-[#111827] text-white px-4 py-2.5 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
           <span>🔔</span> {toastMessage}
         </div>
       )}

@@ -5,11 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
 
-const waveformHeights = [
-  12, 20, 10, 28, 16, 34, 24, 38, 18, 30, 14, 24, 36, 20, 12, 32, 18, 28,
-  14, 38, 24, 16, 30, 12, 22, 34, 18, 28, 12, 20, 32, 16, 26, 12,
-];
-
 export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -33,7 +28,7 @@ export default function LoginForm() {
         if (error.message.includes('Invalid login credentials')) {
           setErrorMessage('Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.');
         } else if (error.message.includes('Email not confirmed')) {
-          setErrorMessage('Tài khoản chưa được xác nhận email. Hãy kiểm tra cài đặt trong Supabase Auth.');
+          setErrorMessage('Tài khoản chưa được xác nhận email. Hãy kiểm tra hộp thư đến.');
         } else {
           setErrorMessage(error.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
         }
@@ -42,8 +37,8 @@ export default function LoginForm() {
 
       if (data.session) {
         const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
+          .from('users')
+          .select('role,account_status')
           .eq('id', data.session.user.id)
           .maybeSingle();
 
@@ -57,17 +52,29 @@ export default function LoginForm() {
           return;
         }
 
-        if (!profile) {
+        if (!profile || profile.account_status !== 'active') {
           const { error: signOutError } = await supabase.auth.signOut();
           setErrorMessage(
             signOutError
-              ? 'Tài khoản chưa có hồ sơ và phiên chưa thể đóng. Hãy tải lại trang hoặc liên hệ quản trị viên.'
-              : 'Tài khoản chưa có hồ sơ. Vui lòng liên hệ quản trị viên.',
+              ? 'Tài khoản chưa có hồ sơ hoạt động và phiên chưa thể đóng. Hãy tải lại trang hoặc liên hệ quản trị viên.'
+              : 'Tài khoản chưa có hồ sơ hoạt động. Vui lòng liên hệ quản trị viên.',
           );
           return;
         }
 
-        router.replace(profile.role === 'teacher' ? '/teacher' : '/student');
+        const destination = profile.role === 'admin'
+          ? '/admin'
+          : profile.role === 'lecturer'
+            ? '/teacher'
+            : profile.role === 'student'
+              ? '/student'
+              : null;
+        if (!destination) {
+          await supabase.auth.signOut();
+          setErrorMessage('Vai trò tài khoản không hợp lệ. Vui lòng liên hệ quản trị viên.');
+          return;
+        }
+        router.replace(destination);
       }
     } catch {
       setErrorMessage(
@@ -107,58 +114,27 @@ export default function LoginForm() {
       <div className="mx-auto grid w-full max-w-[1280px] flex-1 grid-cols-1 items-center gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[minmax(0,1fr)_410px] lg:gap-12 xl:gap-16 xl:px-10">
         <section className="mx-auto w-full max-w-[600px] lg:mx-0">
           <h1 className="max-w-[570px] text-[32px] font-semibold leading-[1.08] tracking-[-0.045em] sm:text-[38px]">
-            Nền tảng học tập &amp; đánh giá vấn đáp thông minh bằng AI.
+            Nền tảng quản lý lớp học và bài tập.
           </h1>
           <p className="mt-3 max-w-[560px] text-[14px] leading-[1.7] text-[#666]">
-            Hệ thống phân tích phổ âm học thời gian thực với độ trễ thấp &lt;15s.
-            Kết hợp Acoustic-LLM chấm điểm tự động đa chiều theo khung năng lực
-            chuẩn CEFR và Rubric đào tạo đa quốc gia.
+            Đăng nhập để quản lý lớp học, soạn bài tập hoặc xem các lớp bạn đã tham gia.
+            Ghi âm, camera, chuyển giọng nói thành văn bản và AI hiện chưa được bật.
           </p>
 
           <div className="mt-6 rounded-[18px] border border-[#e5e5e5] bg-white p-4 shadow-[0_8px_24px_rgba(0,0,0,0.03)] sm:p-5">
             <div className="flex items-center gap-2.5 border-b border-[#ededed] pb-3">
-              <span className="h-2 w-2 rounded-full bg-[#7168ff]" />
-              <h2 className="text-[13px] font-semibold">Kiểm tra giọng nói trước khi vào phòng thi</h2>
+              <span className="h-2 w-2 rounded-full bg-[#087b48]" />
+              <h2 className="text-[13px] font-semibold">Các luồng đang hoạt động</h2>
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-[#777]">
-              <span>Phổ âm phổ thoại (Speech Spectral Feed):</span>
-              <span className="shrink-0 font-semibold text-[#333]">-18.4 dBFS (Tối ưu)</span>
-            </div>
-            <div
-              aria-label="Minh họa phổ âm thanh"
-              className="mt-2 flex h-11 items-center justify-between gap-[3px] overflow-hidden rounded-lg bg-[#f2f2f2] px-3"
-            >
-              {waveformHeights.map((height, index) => (
-                <span
-                  key={`${height}-${index}`}
-                  className={`w-[2px] shrink-0 rounded-full ${
-                    index % 7 === 4 || index % 7 === 5 ? 'bg-[#7168ff]' : 'bg-[#292929]'
-                  }`}
-                  style={{ height }}
-                />
-              ))}
-            </div>
-            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[10px] text-[#666]">
-              <span className="flex items-center gap-1.5">
-                <span className="text-[#087b48]" aria-hidden="true">●</span>
-                Microphone: Built-in Array (CoreAudio)
-              </span>
-              <span className="font-medium text-[#555]">Minh họa tín hiệu âm thanh</span>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-3 divide-x divide-[#e8e8e8] border-y border-[#e8e8e8] py-3">
-            <div className="pr-3">
-              <p className="text-[20px] font-bold tracking-tight">50+</p>
-              <p className="text-[10px] leading-tight text-[#777]">Trường Đại học tin dùng</p>
-            </div>
-            <div className="px-3">
-              <p className="text-[20px] font-bold tracking-tight">150,000+</p>
-              <p className="text-[10px] leading-tight text-[#777]">Bài thi vấn đáp đã phân tích</p>
-            </div>
-            <div className="pl-3">
-              <p className="text-[20px] font-bold tracking-tight text-[#087b48]">99.4%</p>
-              <p className="text-[10px] leading-tight text-[#777]">Độ tương thích Rubric chuẩn</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-[#f7f7f7] p-3">
+                <p className="text-xs font-semibold text-gray-900">Lớp học</p>
+                <p className="mt-1 text-[11px] leading-5 text-gray-600">Tạo yêu cầu, duyệt lớp và tham gia bằng mã.</p>
+              </div>
+              <div className="rounded-xl bg-[#f7f7f7] p-3">
+                <p className="text-xs font-semibold text-gray-900">Bài tập</p>
+                <p className="mt-1 text-[11px] leading-5 text-gray-600">Soạn câu hỏi, công bố và xem đề bài theo lớp.</p>
+              </div>
             </div>
           </div>
         </section>
@@ -258,7 +234,7 @@ export default function LoginForm() {
             </form>
 
             <p className="mt-4 border-t border-[#ededed] pt-3 text-center text-[10px] leading-relaxed text-[#777]">
-              Đăng nhập bảo mật qua Supabase Auth.
+              Đăng nhập an toàn.
             </p>
           </div>
         </section>
