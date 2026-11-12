@@ -561,10 +561,18 @@ begin
     raise exception 'Active class code not found';
   end if;
 
-  insert into public.class_members (class_id, student_id, status, joined_at, left_at)
+  insert into public.class_members as existing_member (
+    class_id, student_id, status, joined_at, left_at
+  )
   values (v_class_id, (select auth.uid()), 'active', now(), null)
   on conflict (class_id, student_id) do update
-    set status = 'active', joined_at = now(), left_at = null;
+    set status = 'active', joined_at = now(), left_at = null
+    where existing_member.status <> 'active'
+  returning class_id into v_class_id;
+
+  if not found then
+    raise exception 'Student already joined this class';
+  end if;
 
   return v_class_id;
 end

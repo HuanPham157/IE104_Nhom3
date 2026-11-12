@@ -91,7 +91,7 @@
   Chỉ người có quyền quản trị Supabase mới được tạo/cấp role này. Không gửi mật khẩu qua chat và không gán role `admin` vào `user_metadata` hoặc `public.profiles`.
 - **Dashboard giảng viên (`/teacher/classes`):** Giảng viên tạo lớp sẽ gửi yêu cầu chờ admin duyệt. Dropdown khoa của form tạo lớp được cấu hình trong `src/components/TeacherClasses.tsx`. Danh sách lớp, sinh viên tham gia và bài tập lấy từ API/Supabase. Tạo bài tập chỉ bật cho lớp đang hoạt động.
 - **Dashboard quản trị (`/admin`):** Admin có thể mở `/admin/classes` để xem lớp, mở danh sách lớp/sinh viên/bài tập, tạo lớp được kích hoạt ngay và soạn bài tập. Lớp có sinh viên hoặc bài tập khi bị xóa sẽ được lưu trữ để giữ nguyên dữ liệu liên quan.
-- **Dashboard sinh viên (`/student/classes`):** Sinh viên tham gia lớp bằng mã lớp và xem các bài tập đã được công bố. Ghi âm, camera, chuyển giọng nói thành văn bản và AI chấm điểm hiện chưa bật.
+- **Dashboard sinh viên (`/student/classes`):** Sinh viên tham gia lớp bằng mã lớp và xem các bài tập đã được công bố. API từ chối mã không hợp lệ/lớp không hoạt động và từ chối tham gia trùng mà không cập nhật dữ liệu. Ghi âm, camera, chuyển giọng nói thành văn bản và AI chấm điểm hiện chưa bật.
 - **Xem đề bài (`/student/assignments/[id]`):** Sinh viên xem hướng dẫn, hạn nộp và câu hỏi; đáp án tham khảo/rubric không được trả về cho role sinh viên.
 - **Soạn bài tập (`/teacher/assignments/create`):** Giảng viên và admin chọn lớp đang hoạt động, nhập hướng dẫn, hạn nộp, câu hỏi, đáp án tham khảo và tiêu chí chấm; lưu nháp để tiếp tục chỉnh sửa hoặc công bố cho sinh viên.
 - **Xóa bài tập:** Giảng viên có thể xóa bài tập trong chi tiết lớp. Bài tập chưa có bài nộp sẽ bị xóa; bài đã có bài nộp sẽ được lưu trữ để bảo toàn kết quả.
@@ -115,20 +115,33 @@
 4. Với tài khoản thử nghiệm tạo thủ công, đánh dấu **Auto Confirm Email** để có thể đăng nhập ngay.
 
 ### Bước 4: Cấu hình biến môi trường tại máy Local
-Tại thư mục gốc dự án, tạo tệp `.env.local` (tệp này đã được `.gitignore` bảo vệ, tuyệt đối không đưa lên GitHub):
+Tại thư mục gốc dự án, sao chép `.env.example` thành `.env.local` (tệp này đã được `.gitignore` bảo vệ, tuyệt đối không đưa lên GitHub). Điền URL/key Supabase và chỉ thêm thông tin tài khoản thử nghiệm trong máy cá nhân:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
 
 # Biến dùng riêng cho Playwright E2E Test tại local (tùy chọn)
-TEST_EMAIL_A=usera@gm.uit.edu.vn
-TEST_PASSWORD_A=YourSecurePassword123#
-TEST_EMAIL_B=userb@gm.uit.edu.vn
-TEST_PASSWORD_B=YourSecurePassword123#
+TEST_EMAIL_A=
+TEST_PASSWORD_A=
+TEST_EMAIL_B=
+TEST_PASSWORD_B=
+
+# Dữ liệu dành riêng cho kiểm thử tham gia lớp (không bắt buộc)
+TEST_CLASS_JOIN_AVAILABLE_CODE=
+TEST_CLASS_JOIN_AVAILABLE_ID=
+TEST_CLASS_JOIN_UNKNOWN_CODE=
 ```
 
-Tham khảo mẫu chuẩn tại [`.env.example`](file:///d:/HocTap/Nam%203/HK1/IE104/viec-hoc/.env.example).
+Không điền mật khẩu/token thật vào `.env.example` hoặc commit `.env.local`.
+
+### Bài thực hành: tham gia lớp bằng mã
+
+- Thiết kế yêu cầu, R1–R3, dữ liệu và vị trí mã nguồn: [`DESIGN.md`](./DESIGN.md).
+- Ca kiểm thử, trạng thái chạy và minh chứng: [`TEST_REPORT.md`](./TEST_REPORT.md).
+- Chạy kiểm thử tích hợp với tài khoản/lớp thử đã chuẩn bị: `npx playwright test tests/class-join.spec.ts --project=chromium`.
+- Sau khi cập nhật hàm RPC, chạy lại `supabase/oralcheck_backend.sql` trong Supabase SQL Editor. Ca TC01 tạo dữ liệu thành viên thử và không tự xóa; gỡ thành viên bằng tài khoản giảng viên/admin trước khi chạy lại.
+- Thông tin sinh viên trong `DESIGN.md` cần được điền trước khi nộp; không lưu thông tin cá nhân hoặc mật khẩu vào ảnh minh chứng.
 
 ---
 

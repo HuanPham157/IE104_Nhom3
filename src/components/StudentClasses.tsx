@@ -414,7 +414,7 @@ export default function StudentClasses() {
 
             <form onSubmit={handleJoinClass} className="mt-4 space-y-4">
               <p className="text-xs text-gray-600">
-                Nhập mã lớp học (Class Code gồm 8 ký tự, ví dụ: <code className="rounded bg-gray-100 px-1 py-0.5 font-bold text-black">AIO-8892</code>) do giảng viên bộ môn cung cấp:
+                Nhập mã lớp học gồm 6–10 ký tự chữ hoặc số (ví dụ: <code className="rounded bg-gray-100 px-1 py-0.5 font-bold text-black">AIO8892</code>) do giảng viên bộ môn cung cấp:
               </p>
 
               <div>
@@ -425,7 +425,10 @@ export default function StudentClasses() {
                   id="class-code-input"
                   type="text"
                   required
-                  placeholder="VD: AIO-8892"
+                  minLength={6}
+                  maxLength={10}
+                  pattern="[A-Za-z0-9]{6,10}"
+                  placeholder="VD: AIO8892"
                   value={classCodeInput}
                   onChange={(e) => setClassCodeInput(e.target.value.toUpperCase())}
                   className="mt-1.5 w-full rounded-xl border border-gray-300 px-3.5 py-2.5 font-mono text-sm uppercase tracking-wider text-black placeholder-gray-400 focus:border-black focus:outline-none focus:ring-1 focus:ring-black"

@@ -26,10 +26,19 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    reportDatabaseError('Unable to join class', error);
     if (error.message.includes('Active class code not found')) {
-      return apiJson({ error: 'Không tìm thấy lớp đang hoạt động với mã này' }, 404);
+      return apiJson({
+        error: 'Không tìm thấy lớp đang hoạt động với mã này',
+        code: 'CLASS_NOT_FOUND',
+      }, 404);
     }
+    if (error.message.includes('Student already joined this class')) {
+      return apiJson({
+        error: 'Bạn đã tham gia lớp này trước đó',
+        code: 'ALREADY_JOINED',
+      }, 409);
+    }
+    reportDatabaseError('Unable to join class', error);
     return apiJson({ error: 'Không thể tham gia lớp học' }, 500);
   }
 
