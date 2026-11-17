@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/frontend/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -15,6 +16,7 @@
 
 # next.js
 /.next/
+/frontend/.next/
 /out/
 
 # production
@@ -36,7 +38,9 @@ yarn-error.log*
 
 # playwright
 /playwright-report/
+/frontend/playwright-report/
 /test-results/
+/frontend/test-results/
 
 # vercel
 .vercel
@@ -44,3 +48,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/frontend/next-env.d.ts
+/frontend/*.tsbuildinfo
+/.venv/

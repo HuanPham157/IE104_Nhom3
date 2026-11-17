@@ -1,0 +1,9 @@
+# Supabase
+
+- `migrations/000` → `005`: schema gốc, RLS, RPC nghiệp vụ, pipeline AI.
+- `seed.sql`: **hàm dùng chung** (tái sử dụng) — `require_app_role`, `can_manage_assignment`, `assert_draft_assignment_editable`, `is_within_exam_time`, `latest_transcript` / `first_transcript`, `start_answer_ai_processing`, `mark_answer_ai_failed`. Không chứa dữ liệu cá nhân.
+- `migrations/006_oral_exam_features.sql`: tính năng làm bài (nhiều phiên bản ghi âm, chọn bản nộp, đồng hồ), barem chấm chung, giảng viên kích hoạt chấm AI — gọi lại các hàm trong `seed.sql`.
+
+Thứ tự chạy trên SQL Editor: `000 → 005` → `seed.sql` → `006`.
+
+Lưu ý khi chuyển sang Supabase CLI: `supabase db reset` chạy `seed.sql` **sau** mọi migration, nên khi đó cần chuyển các hàm dùng chung thành một migration riêng đứng trước `006` (ví dụ `005a_shared_functions.sql`).

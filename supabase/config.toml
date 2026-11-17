@@ -1,0 +1,3 @@
+# Supabase CLI local development configuration.
+# Add project-specific settings when the Supabase CLI workflow is enabled.
+project_id = "ai-oral-check"
