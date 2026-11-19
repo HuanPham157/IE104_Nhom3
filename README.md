@@ -1,8 +1,8 @@
 # AI OralCheck — Kiểm tra mức độ hiểu bài qua ghi âm
 
-Đồ án môn IE104 (Nhóm 3). Giảng viên giao bài vấn đáp ngắn; sinh viên ghi âm câu trả lời ngay trên trình duyệt; hệ thống chuyển giọng nói thành văn bản (Whisper) và dùng LLM chấm mức độ hiểu theo barem, chỉ ra ý đúng / sai / còn thiếu. Giảng viên nghe lại, chỉnh điểm và công bố điểm chính thức.
+Đồ án môn IE104 (Nhóm 3). Giảng viên giao bài vấn đáp ngắn; sinh viên ghi âm câu trả lời ngay trên trình duyệt; hệ thống chuyển giọng nói thành văn bản (Faster-Whisper) và dùng engine chấm điểm chạy local (Sentence Transformers + PhoBERT, không dùng API AI thương mại) chấm mức độ hiểu theo barem, chỉ ra ý đúng / sai / còn thiếu. Giảng viên nghe lại, chỉnh điểm và công bố điểm chính thức.
 
-**Công nghệ:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Supabase (Postgres, Auth, Storage, RLS) · FastAPI + OpenAI Whisper · OpenAI API (chấm điểm) · MediaRecorder / Web Speech API.
+**Công nghệ:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Supabase (Postgres, Auth, Storage, RLS) · FastAPI + Faster-Whisper · Sentence Transformers / PhoBERT (chấm điểm local) · MediaRecorder / Web Speech API.
 
 ## Lộ trình các bài thực hành
 
@@ -13,7 +13,7 @@ Dự án phát triển dần qua các bài thực hành của môn; trang `/task
 | **Lưu trữ dữ liệu** | React state trong bộ nhớ (mất khi reload) | **Supabase PostgreSQL** (bền vững) | Postgres + **Supabase Storage** (audio, bucket private) |
 | **Xác thực** | Form mô phỏng | **Supabase Auth**, tự chuyển hướng | Supabase Auth + 3 vai trò: sinh viên / giảng viên / quản trị viên |
 | **Phân quyền** | Không có | **RLS** + JWT Bearer ở API | RLS + **RPC `security definer`** cho mọi thao tác ghi, hàm kiểm tra quyền dùng chung |
-| **Kiến trúc** | Chỉ client | Client ↔ Next.js API ↔ Supabase | Thêm **AI service** (FastAPI: Whisper + OpenAI) |
+| **Kiến trúc** | Chỉ client | Client ↔ Next.js API ↔ Supabase | Thêm **AI service** (FastAPI: Faster-Whisper + engine chấm local) |
 | **Môi trường chạy** | localhost:3000 | localhost + **Vercel** | localhost (web + AI service); Vercel cho web, AI service host riêng |
 | **Kiểm thử** | Thủ công | 12 ca kiểm thử (T01–T12) + Playwright | Playwright (`tests/`) + 3 lệnh kiểm tra bắt buộc |
 
@@ -57,8 +57,8 @@ Next.js Route Handlers (frontend/src/app/api)  ── Supabase (Auth, Postgres +
    │  ký URL audio, gọi AI service                   │ lưu transcript / đánh giá qua RPC
    ▼                                                  │
 AI service FastAPI (ai-service, cổng 8001) ───────────┘
-   ├─ POST /api/transcribe   Whisper (chạy local, cần FFmpeg)
-   └─ POST /api/grade        OpenAI chấm theo rubric + barem → JSON có kiểm tra schema
+   ├─ POST /api/transcribe   Faster-Whisper (chạy local)
+   └─ POST /api/grade        engine local (ai-service/app/assessment): so khớp ngữ nghĩa + từ khóa theo rubric → JSON có kiểm tra schema
 ```
 
 - Mọi quyền truy cập dữ liệu được kiểm soát bằng **RLS** và các **RPC `security definer`** trong Supabase; Next.js dùng phiên đăng nhập của người dùng, chỉ dùng `SUPABASE_SECRET_KEY` (server-only) cho bước lưu kết quả AI.
@@ -80,9 +80,9 @@ IE104_Nhom3/
 │       ├── lib/                  # Logic dùng chung: gọi API, chấm AI, phân tích transcript,
 │       │                         # đọc đề/barem, đọc file .docx, ký URL audio…
 │       └── services/supabase/    # Supabase client (browser / server)
-├── ai-service/                   # FastAPI: Whisper STT + chấm điểm bằng OpenAI
+├── ai-service/                   # FastAPI: Faster-Whisper STT + engine chấm điểm local
 ├── supabase/
-│   ├── migrations/               # 000 → 006: schema, RLS, RPC nghiệp vụ, pipeline AI
+│   ├── migrations/               # 000 → 010: schema, RLS, RPC nghiệp vụ, pipeline AI
 │   ├── seed.sql                  # Hàm SQL dùng chung (tái sử dụng) — chạy trước migration 006
 │   └── README.md
 ├── backend/                      # Khung backend Python dự phòng (chưa dùng; API đang ở Next.js)
@@ -102,14 +102,12 @@ Tóm tắt: cài công cụ → tạo project Supabase và chạy SQL → điề
 | Công cụ | Phiên bản | macOS | Windows | Ubuntu/Debian |
 |---|---|---|---|---|
 | Node.js + npm | 20 trở lên | `brew install node` | [nodejs.org](https://nodejs.org) (bản LTS) | `sudo apt install nodejs npm` hoặc dùng `nvm` |
-| Python | **3.8 – 3.11** (Whisper chính thức hỗ trợ; khuyến nghị 3.11, dự án đang chạy ổn với 3.9) | `brew install python@3.11` | [python.org](https://www.python.org/downloads/) (tick “Add to PATH”) | `sudo apt install python3 python3-venv` |
-| FFmpeg (Whisper bắt buộc, dùng để đọc audio) | bất kỳ | `brew install ffmpeg` | `winget install Gyan.FFmpeg` hoặc `choco install ffmpeg` hoặc `scoop install ffmpeg` | `sudo apt update && sudo apt install ffmpeg` (Arch: `sudo pacman -S ffmpeg`) |
+| Python | **3.9 – 3.12** (dự án đang chạy với 3.9) | `brew install python@3.11` | [python.org](https://www.python.org/downloads/) (tick “Add to PATH”) | `sudo apt install python3 python3-venv` |
 | Git | bất kỳ | có sẵn / `brew install git` | [git-scm.com](https://git-scm.com) | `sudo apt install git` |
-| Rust *(chỉ khi cần)* | bất kỳ | `brew install rust` | [rustup.rs](https://rustup.rs) | `curl https://sh.rustup.rs -sSf \| sh` |
 
-Kiểm tra: `node -v`, `python3 --version` (Windows: `python --version`), `ffmpeg -version`.
+Kiểm tra: `node -v`, `python3 --version` (Windows: `python --version`). Không cần cài FFmpeg: Faster-Whisper đọc audio bằng thư viện PyAV đi kèm.
 
-Rust chỉ cần khi `pip` không tìm được bản dựng sẵn của `tiktoken` (thư viện tokenizer mà Whisper phụ thuộc) cho máy của bạn — xem mục *Cài Whisper*2. Hướng dẫn thiết lập Cơ sở dữ liệu Supabase & Môi trường
+2. Hướng dẫn thiết lập Cơ sở dữ liệu Supabase & Môi trường
 
 Bước 1: Tạo Project trên Supabase
 
@@ -134,8 +132,12 @@ Chạy lần lượt toàn bộ nội dung các tệp sau, mỗi tệp trong m�
    | 6 | `supabase/migrations/005_assignment_exam_duration.sql` | thời lượng làm bài |
    | 7 | `supabase/seed.sql` | **hàm dùng chung** |
    | 8 | `supabase/migrations/006_oral_exam_features.sql` | nhiều phiên bản ghi âm, barem, GV chấm AI, công bố điểm |
+   | 9 | `supabase/migrations/007_reference_answer_visibility.sql` | giảng viên bật/tắt cho sinh viên xem đáp án tham khảo sau khi nộp |
+   | 10 | `supabase/migrations/008_personal_tasks.sql` | việc cá nhân của sinh viên: hạn chót, ưu tiên, ghi chú |
+   | 11 | `supabase/migrations/009_assignment_retakes.sql` | làm lại cả bài nhiều lần, điểm chính thức = lượt cao nhất |
+   | 12 | `supabase/migrations/010_publish_after_deadline.sql` | chỉ công bố điểm sau hạn nộp |
 
-   Mỗi lần chạy thành công sẽ hiện *Success. No rows returned*. `seed.sql` và `006` chạy lại nhiều lần vẫn an toàn.
+   Mỗi lần chạy thành công sẽ hiện *Success. No rows returned*. `seed.sql`, `006` → `010` chạy lại nhiều lần vẫn an toàn.
 
 `profile_mẫu.sql` thì có run chung luôn (tài khoản có sẵn)
 
@@ -275,9 +277,8 @@ Mở hai file vừa tạo và điền:
 | `SUPABASE_SECRET_KEY` | ✔ | | Bước 1.6 — cần để lưu kết quả chấm AI |
 | `AI_SERVICE_URL` | ✔ | | giữ `http://127.0.0.1:8001` |
 | `AI_SERVICE_TOKEN` | ✔ | ✔ | **giống hệt nhau** ở hai file |
-| `OPENAI_API_KEY` | | ✔ | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) — cần để AI chấm điểm (nhận dạng giọng nói chạy local, không cần key) |
-| `OPENAI_GRADING_MODEL` | ✔ | ✔ | mặc định `gpt-4o-mini` |
-| `WHISPER_MODEL` | ✔ | ✔ | `base` (nhanh) hoặc `small` (chính xác hơn với tiếng Việt) |
+| `GRADER_EMBEDDING_MODEL` | | ✔ | mặc định `keepitreal/vietnamese-sbert` (PhoBERT); không cần API key |
+| `WHISPER_MODEL` | ✔ | ✔ | `small` (mặc định, khuyến nghị) hoặc `base` (nhanh hơn, sai nhiều hơn với tiếng Việt) |
 
 Không commit các file `.env` thật; chỉ `.env.example` (khóa để trống) nằm trong git.
 
@@ -288,7 +289,7 @@ cd ai-service
 python3 -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install --upgrade pip
-pip install -r requirements.txt      # lần đầu tải PyTorch + Whisper (~1–2 GB), có thể mất vài phút
+pip install -r requirements.txt      # lần đầu tải Faster-Whisper + CTranslate2 (~200 MB)
 uvicorn app.main:app --reload --port 8001 --env-file .env
 ```
 
@@ -296,73 +297,58 @@ Thấy `Uvicorn running on http://127.0.0.1:8001` là được. Kiểm tra ở t
 
 ```bash
 curl http://127.0.0.1:8001/health
-# {"status":"ok","service":"whisper"}
+# {"status":"ok","service":"faster-whisper","model":"small"}
 ```
 
-Lần nhận dạng đầu tiên sẽ tải model Whisper (`base` ~140 MB, `small` ~460 MB). **Giữ terminal này chạy** trong suốt quá trình dùng web. Những lần sau chỉ cần: `cd ai-service && source .venv/bin/activate && uvicorn app.main:app --reload --port 8001 --env-file .env`.
+Lần nhận dạng đầu tiên sẽ tải model từ Hugging Face về `~/.cache/huggingface` (`base` ~141 MB, `small` ~464 MB) nên mất 1–2 phút. **Giữ terminal này chạy** trong suốt quá trình dùng web. Những lần sau chỉ cần: `cd ai-service && source .venv/bin/activate && uvicorn app.main:app --reload --port 8001 --env-file .env`.
 
-#### Cài Whisper (OpenAI Whisper — nhận dạng giọng nói chạy trên máy)
+#### Nhận dạng giọng nói (Faster-Whisper — chạy trên máy)
 
-`requirements.txt` đã có `openai-whisper`, nên lệnh `pip install -r requirements.txt` ở trên thường là đủ. Các lệnh dưới đây (theo [hướng dẫn chính thức](https://github.com/openai/whisper)) dùng khi cần cài lại, cập nhật hoặc gỡ lỗi — luôn chạy **trong venv đã kích hoạt** (`source .venv/bin/activate`):
+AI service dùng [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) (Whisper chạy trên CTranslate2): nhanh hơn và tốn ít RAM hơn bản `openai-whisper`, **không cần PyTorch, FFmpeg hay Rust** — audio được giải mã bằng thư viện PyAV đi kèm. Các bước chống transcript sai đã bật sẵn trong `ai-service/app/speech/transcription.py`:
+
+- Lọc khoảng lặng (VAD) trước khi nhận dạng, giảm tình trạng model tự “bịa” câu khi im lặng.
+- Bỏ các đoạn Whisper đánh giá là không có lời nói, đoạn lặp chữ, đoạn trùng nhau và các câu bịa quen thuộc (“Hãy subscribe cho kênh…”).
+- Dùng nội dung câu hỏi làm gợi ý ngữ cảnh; không để lỗi của đoạn trước kéo theo đoạn sau.
+- Trả thêm `confidence` (0–1) cho mỗi transcript.
+
+Kiểm tra nhanh không cần chạy web (trong venv đã kích hoạt):
 
 ```bash
-# Cài / cập nhật bản phát hành mới nhất
-pip install -U openai-whisper
-
-# Hoặc cài commit mới nhất từ GitHub (kèm các phụ thuộc Python)
-pip install git+https://github.com/openai/whisper.git 
-
-# Cập nhật lên bản mới nhất trên GitHub mà không cài lại phụ thuộc
-pip install --upgrade --no-deps --force-reinstall git+https://github.com/openai/whisper.git
-
-# Tải ffmpeg 
-# on Ubuntu or Debian
-sudo apt update && sudo apt install ffmpeg
-
-# on Arch Linux
-sudo pacman -S ffmpeg
-
-# on MacOS using Homebrew (https://brew.sh/)
-brew install ffmpeg
-
-# on Windows using Chocolatey (https://chocolatey.org/)
-choco install ffmpeg
-
-# on Windows using Scoop (https://scoop.sh/)
-scoop install ffmpeg
+python -c "from faster_whisper import WhisperModel; WhisperModel('small', compute_type='int8'); print('Faster-Whisper OK')"
 ```
 
-Whisper phụ thuộc **PyTorch** (tự cài theo) và **tiktoken**. Nếu `pip install` báo lỗi khi build `tiktoken`:
+Cấu hình trong `ai-service/.env`:
+
+| Biến | Giá trị | Ghi chú |
+|---|---|---|
+| `WHISPER_MODEL` | `tiny` / `base` / `small` (mặc định) / `medium` | Có thể dùng repo CTranslate2 trên Hugging Face (ví dụ bản PhoWhisper đã chuyển đổi) |
+| `WHISPER_DEVICE` | `auto` (mặc định) / `cpu` / `cuda` | |
+| `WHISPER_COMPUTE_TYPE` | `int8` (mặc định, CPU) / `float16` (GPU) | |
+| `WHISPER_WORKERS` | `1` | Tăng khi nhiều sinh viên nộp cùng lúc; mỗi worker tốn thêm RAM |
+
+Đo trên MacBook (CPU, int8) với một câu tiếng Việt ~10 giây: `base` ~1,4 giây/câu nhưng sai nhiều thuật ngữ; `small` ~3,9 giây/câu và đúng hơn rõ rệt (**khuyến nghị**). `medium` chính xác hơn nữa nhưng chậm và cần nhiều RAM.
+
+#### Engine chấm điểm (chạy local, không dùng API AI thương mại)
+
+`POST /api/grade` dùng engine trong `ai-service/app/assessment/`:
+
+1. **Tiền xử lý** tiếng Việt: chuẩn hóa, bỏ từ đệm, tách mệnh đề, tách từ cho PhoBERT (`pyvi`).
+2. **Xác định ý cần có** của từng tiêu chí: phần sau `=>` trong barem nếu có (`;` = phải đủ, `|` = một trong các ý), nếu không thì tự tách từ đáp án tham khảo.
+3. **So khớp ngữ nghĩa** từng ý với các mệnh đề của câu trả lời bằng Sentence Transformers (mặc định `keepitreal/vietnamese-sbert`), kết hợp **độ phủ từ khóa** (chịu lỗi dấu, lỗi nhận dạng một ký tự). Câu hỏi so sánh (“so sánh A và B”) chỉ so ý của A với phần câu trả lời nói về A.
+4. **Phát hiện mâu thuẫn** (phủ định ngược, từ trái nghĩa như trước/sau, client/server, riêng/chung) → tiêu chí bị đánh “sai” và bài được đưa cho giảng viên duyệt.
+5. **Nhận xét theo mẫu**: không nêu nội dung đáp án/barem trừ khi giảng viên bật xem đáp án.
+
+Đánh giá và hiệu chỉnh trên bộ dữ liệu mẫu (`ai-service/tests/fixtures/vi_grading_cases.json`):
 
 ```bash
-# 1. Cài Rust (https://www.rust-lang.org/learn/get-started), rồi thêm vào PATH
-export PATH="$HOME/.cargo/bin:$PATH"          # Windows: mở terminal mới sau khi cài rustup
-
-# 2. Nếu lỗi "No module named 'setuptools_rust'"
-pip install setuptools-rust
-
-# 3. Cài lại
-pip install -r requirements.txt
+cd ai-service && source .venv/bin/activate
+pip install -r requirements-dev.txt
+python -m pytest tests -q                       # kiểm thử engine
+python -m scripts.evaluate_grader --cases       # sai số so với điểm kỳ vọng
+python -m scripts.evaluate_grader --calibrate   # dò lại ngưỡng trên tập calib
 ```
 
-Kiểm tra Whisper và FFmpeg hoạt động (không cần chạy web):
-
-```bash
-python -c "import whisper; print(whisper.__version__); whisper.load_model('base'); print('Whisper OK')"
-# Thử nhận dạng một file audio bất kỳ bằng dòng lệnh:
-whisper duong-dan/audio.webm --model base --language vi
-```
-
-Chọn model qua `WHISPER_MODEL` trong `ai-service/.env`:
-
-| Model | Dung lượng tải | Tốc độ | Độ chính xác tiếng Việt |
-|---|---|---|---|
-| `tiny` | ~75 MB | nhanh nhất | thấp |
-| `base` (mặc định) | ~140 MB | nhanh | trung bình, hay sai với câu ngắn |
-| `small` | ~460 MB | chậm hơn ~2–3 lần | **khuyến nghị cho demo** |
-| `medium` | ~1.5 GB | chậm, cần nhiều RAM | tốt |
-
-Model được tải về `~/.cache/whisper` ở lần dùng đầu tiên. Máy không có GPU vẫn chạy được trên CPU (ứng dụng đã tắt FP16 nên không hiện cảnh báo).
+Kết quả hiện tại trên tập test (dữ liệu tổng hợp, chưa phải điểm giảng viên thật): MAE 1,42/10, 58% bài lệch ≤ 1 điểm, tương quan 0,86; bài trả lời sai/lạc đề phần lớn được đánh dấu cần duyệt. Lần chấm đầu tải model embedding (~1 GB).
 
 ### Bước 4. Chạy web — terminal thứ hai
 
@@ -446,7 +432,7 @@ Không chạy các lệnh này cho tài khoản đã đăng ký qua `/signup` (t
 2. **Giảng viên** → Soạn bài tập → chọn lớp, giờ bắt đầu = bây giờ, thời lượng 10 phút, thêm 1 câu hỏi → **Công bố bài tập**. Ghi lại **mã lớp**.
 3. **Sinh viên** → Lớp học → nhập mã lớp → mở bài → **Bắt đầu làm bài** → cho phép micro → ghi âm 5–10 giây.
    - Thấy “Transcript sẵn sàng” → Supabase Storage + AI service + Whisper đã thông.
-   - Bấm **Nộp bài** → thấy điểm AI đề xuất → OpenAI + `SUPABASE_SECRET_KEY` đã thông.
+   - Bấm **Nộp bài** → thấy điểm AI đề xuất → engine chấm local + `SUPABASE_SECRET_KEY` đã thông.
 4. Nếu bước nào lỗi, đọc dòng chữ đỏ trên giao diện và xem mục **Xử lý sự cố** bên dưới.
 
 > Ghi âm chỉ hoạt động trên `http://localhost` hoặc HTTPS. Transcript tạm thời khi đang nói cần Chrome hoặc Edge.
@@ -523,12 +509,12 @@ Một số kịch bản được viết trước khi có luồng làm bài / ch�
 ---
 ## Triển khai trực tuyến
 
-Web (Next.js) chạy được trên **Vercel Free**; AI service (Whisper cần FFmpeg và vài trăm MB RAM cho model) **không chạy trên Vercel** — cần host riêng (máy chủ / VPS, Render, Railway, Fly.io…) hoặc chạy trên máy demo và mở ra ngoài bằng tunnel HTTPS.
+Web (Next.js) chạy được trên **Vercel Free**; AI service (Faster-Whisper cần vài trăm MB RAM cho model) **không chạy trên Vercel** — cần host riêng (máy chủ / VPS, Render, Railway, Fly.io…) hoặc chạy trên máy demo và mở ra ngoài bằng tunnel HTTPS.
 
 1. Đưa mã nguồn lên GitHub; kiểm tra **không** có file `.env` / `.env.local` nào được commit (`git status` không được liệt kê chúng).
-2. **AI service:** triển khai thư mục `ai-service/` (cài FFmpeg + `pip install -r requirements.txt`, lệnh chạy `uvicorn app.main:app --host 0.0.0.0 --port $PORT`), đặt các biến `OPENAI_API_KEY`, `OPENAI_GRADING_MODEL`, `WHISPER_MODEL`, `AI_SERVICE_TOKEN`. Ghi lại URL HTTPS công khai.
+2. **AI service:** triển khai thư mục `ai-service/` (`pip install -r requirements.txt`, lệnh chạy `uvicorn app.main:app --host 0.0.0.0 --port $PORT`), đặt các biến `WHISPER_MODEL`, `GRADER_EMBEDDING_MODEL`, `AI_SERVICE_TOKEN`. Cần khoảng 3 GB RAM (Faster-Whisper `small` + model embedding + PyTorch); nên cài PyTorch bản chỉ CPU để image nhỏ hơn. Ghi lại URL HTTPS công khai.
 3. **Vercel:** [vercel.com](https://vercel.com) → **Add New… → Project** → chọn repository → **Root Directory = `frontend`**.
-4. **Environment Variables** trên Vercel: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `AI_SERVICE_URL` (URL ở bước 2), `AI_SERVICE_TOKEN` (giống AI service), `WHISPER_MODEL`, `OPENAI_GRADING_MODEL` → **Deploy** và chờ trạng thái **Ready**.
+4. **Environment Variables** trên Vercel: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `AI_SERVICE_URL` (URL ở bước 2), `AI_SERVICE_TOKEN` (giống AI service), `WHISPER_MODEL` → **Deploy** và chờ trạng thái **Ready**.
 5. **Supabase → Authentication → URL Configuration:** đổi **Site URL** thành domain Vercel (`https://<tên>.vercel.app`) và thêm vào **Redirect URLs** (giữ cả `http://localhost:3000` nếu vẫn chạy local).
 6. Nghiệm thu online: đăng nhập 3 vai trò, ghi âm, nộp bài, chấm và công bố điểm.
 7. Sau mỗi lần đổi biến môi trường trên Vercel phải **Redeploy** (Deployments → … → Redeploy).
@@ -561,7 +547,7 @@ Web (Next.js) chạy được trên **Vercel Free**; AI service (Whisper cần F
    Secret key bỏ qua RLS. Nếu lộ ra trình duyệt, ai cũng tự ghi điểm được. Vì vậy key không có tiền tố `NEXT_PUBLIC_`, và chỉ dùng để gọi hai RPC chỉ cấp cho `service_role` (đọc ngữ cảnh chấm, lưu đánh giá AI) **sau khi** đã xác thực người dùng và quyền với câu trả lời.
 
 8. **Vì sao điểm AI chỉ là “đề xuất”?**
-   Whisper có thể nhận dạng sai, LLM có thể chấm sai. Giảng viên nghe audio, xem dẫn chứng từng tiêu chí, chỉnh điểm (bắt buộc ghi nhận xét khi khác điểm AI) và chỉ **điểm đã duyệt + công bố** mới hiển thị là điểm chính thức cho sinh viên.
+   Whisper có thể nhận dạng sai, engine chấm có thể chấm sai (đặc biệt câu trả lời đúng chủ đề nhưng nói ngược ý — engine đánh dấu “cần giảng viên duyệt” khi phát hiện mâu thuẫn hoặc không chắc chắn). Giảng viên nghe audio, xem dẫn chứng từng tiêu chí, chỉnh điểm (bắt buộc ghi nhận xét khi khác điểm AI) và chỉ **điểm đã duyệt + công bố** mới hiển thị là điểm chính thức cho sinh viên.
 
 ---
 
@@ -581,14 +567,13 @@ Web (Next.js) chạy được trên **Vercel Free**; AI service (Whisper cần F
 |---|---|
 | “Không thể tạo transcript” / “Không kết nối được AI service” | AI service chưa chạy ở cổng 8001 → chạy Bước 3 và giữ terminal mở. |
 | “Unauthorized AI service request” / “Thiếu AI_SERVICE_TOKEN” | `AI_SERVICE_TOKEN` hai file không khớp; sửa rồi khởi động lại cả `npm run dev` và Uvicorn. |
-| Transcript tiếng Việt sai nhiều | Model `base` yếu với tiếng Việt → đặt `WHISPER_MODEL=small` trong `ai-service/.env` (chậm hơn, tải ~460 MB lần đầu). |
-| Có transcript nhưng AI không chấm được | Thiếu `OPENAI_API_KEY` trong `ai-service/.env`, hoặc thiếu `SUPABASE_SECRET_KEY` trong `frontend/.env.local`. Giảng viên vẫn chấm tay được. |
+| Transcript tiếng Việt sai nhiều | Dùng `WHISPER_MODEL=small` hoặc `medium` trong `ai-service/.env`; nhờ sinh viên dùng trang **Thử micro** (`/student/recorder`) để kiểm tra micro và tạp âm trước khi làm bài. |
+| Có transcript nhưng AI không chấm được | Thiếu `SUPABASE_SECRET_KEY` trong `frontend/.env.local`, hoặc AI service chưa tải được model embedding lần đầu (cần mạng tới Hugging Face, ~1 GB). Giảng viên vẫn chấm tay được. |
 | “Máy chủ chưa chạy supabase/seed.sql và migration 006…” | Chạy SQL số 7 và 8 ở Bước 1. |
 | Đăng ký xong không đăng nhập được | “Confirm email” đang bật → bấm link trong email, hoặc tắt ở Bước 1.4. |
 | Đăng nhập giảng viên/admin nhưng vẫn vào trang sinh viên | Chưa chạy SQL nâng quyền ở Bước 5, hoặc chưa đăng xuất / đăng nhập lại. |
-| `pip install` lỗi khi cài `torch` / `openai-whisper` | Dùng Python 3.8–3.11 (bản mới hơn có thể chưa có gói dựng sẵn); xóa `.venv`, tạo lại bằng đúng phiên bản rồi cài lại. |
-| Lỗi build `tiktoken` / `No module named 'setuptools_rust'` | Cài Rust và `pip install setuptools-rust` (xem *Cài Whisper* ở Bước 3). |
-| `ffmpeg not found` trong log AI service | Chưa cài FFmpeg hoặc chưa có trong PATH (Bước 0); mở terminal mới sau khi cài. |
+| `pip install` lỗi khi cài `faster-whisper` / `ctranslate2` / `av` | Dùng Python 3.9–3.12 (bản quá mới có thể chưa có gói dựng sẵn); xóa `.venv`, tạo lại bằng đúng phiên bản rồi cài lại. |
+| Lần nhận dạng đầu tiên rất lâu hoặc báo lỗi tải model | Model được tải từ Hugging Face ở lần đầu (`small` ~464 MB); kiểm tra kết nối mạng rồi thử lại. |
 | Không ghi âm được | Trình duyệt chỉ cho dùng micro trên `localhost` hoặc HTTPS; kiểm tra quyền micro. Transcript tạm thời cần Chrome/Edge. |
 | Không công bố được điểm | Thông báo lỗi ghi rõ số bài chưa duyệt đủ / đang làm dở; chấm các bài đó rồi công bố lại. |
 

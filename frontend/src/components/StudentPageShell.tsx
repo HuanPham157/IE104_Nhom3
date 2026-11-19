@@ -7,7 +7,7 @@ import { getCachedProfile, getCachedProfileForRole } from '@/lib/profile-cache';
 import StudentSidebar from '@/components/StudentSidebar';
 import PageLoadingScreen from '@/components/PageLoadingScreen';
 
-type StudentPage = 'classes' | 'recorder' | 'history';
+type StudentPage = 'classes' | 'recorder' | 'history' | 'tasks';
 
 interface StudentProfile {
   full_name: string;

@@ -4,6 +4,7 @@ import AnswerAnalysisPanel from '@/components/AnswerAnalysisPanel';
 import { compareKeywords } from '@/lib/answer-analysis';
 import type { AssignmentQuestion, QuestionProgress, ResultLevel } from '@/components/assignment/types';
 import { RESULT_META, finalVersionOf, resultLevelOf } from '@/components/assignment/types';
+import AudioPlayer from '@/components/AudioPlayer';
 import { assessmentLabel } from '@/lib/assessment';
 
 interface SubmissionAnalysisProps {
@@ -93,7 +94,7 @@ export default function SubmissionAnalysis({ questions, progress, resultsPublish
 
               {!version && <p className="mt-3 rounded-lg border border-dashed border-gray-300 p-3 text-xs text-gray-500">Không có câu trả lời được nộp cho câu này.</p>}
               {version && <>
-                {version.audioUrl && <audio controls preload="none" src={version.audioUrl} className="mt-3 h-9 w-full" aria-label={`Bản đã nộp câu ${question.position}`} />}
+                {version.audioUrl && <AudioPlayer key={version.audioUrl} src={version.audioUrl} preload="none" label={`Bản đã nộp câu ${question.position}`} className="mt-3" />}
                 <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Transcript đã nộp (bản {version.attemptNumber})</p>
                 <p className="mt-1 whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-sm leading-6 text-gray-800">{version.transcript || 'Chưa có transcript.'}</p>
               </>}

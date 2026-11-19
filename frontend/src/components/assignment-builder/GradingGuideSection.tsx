@@ -30,7 +30,7 @@ export default function GradingGuideSection({ value, guide, status, questions, d
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
         <div>
           <h2 className="text-sm font-bold text-gray-900">Barem chấm điểm</h2>
-          <p className="text-[11px] text-gray-500">Áp dụng cho cả bài. Sinh viên không xem được; AI chấm từng câu theo tiêu chí và ghi chú bên dưới.</p>
+          <p className="text-[11px] text-gray-500">Gõ hoặc tải một văn bản gồm câu hỏi, đáp án tham khảo và tiêu chí — hệ thống tự tạo danh sách câu hỏi bên dưới. Sinh viên không xem được barem.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <DocumentUploadButton label="Tải file barem (.docx/.txt)" disabled={disabled} onError={onError} onText={(text) => onChange(text)} />
@@ -48,7 +48,10 @@ export default function GradingGuideSection({ value, guide, status, questions, d
         placeholder={'Yêu cầu chung (không bắt buộc)…\n\nCâu 1 (4 điểm)\n- Nêu đúng định nghĩa: 2\n- Cho ví dụ: 2\n\nCâu 2 (6 điểm)\n- …'}
         className="w-full rounded-xl border border-gray-200 p-3 font-mono text-[12px] leading-relaxed focus:border-black focus:outline-none disabled:bg-gray-100"
       />
-      <p className="text-[10px] text-gray-500">Cú pháp: dòng “Câu N (x điểm)” mở đầu phần của câu N; mỗi dòng “- ý: điểm” là một tiêu chí; dòng không có điểm là ghi chú cho AI. Phần trước “Câu 1” là yêu cầu chung.</p>
+      <div className="space-y-0.5 text-[10px] text-gray-500">
+        <p>Cú pháp mỗi câu: “Câu N (x điểm): nội dung câu hỏi”, rồi “Đáp án: …”, rồi “Tiêu chí:” và các dòng “- tiêu chí: điểm” (điểm đặt trước cũng được: “- 2đ: tiêu chí”). “Ghi chú: …” là lưu ý khi chấm. Phần trước “Câu 1” là yêu cầu chung. Bấm “Chèn mẫu” để xem ví dụ.</p>
+        <p>Ý cần có (không bắt buộc, giúp AI chấm chính xác hơn): thêm “=&gt; …” sau điểm. Dấu “;” ngăn các ý <strong>phải nêu đủ</strong>, dấu “|” ngăn các ý <strong>chỉ cần nêu một</strong>. Ví dụ: “- Cho ví dụ: 1 =&gt; lời gọi hàm | hoàn tác”.</p>
+      </div>
 
       {value.trim() && (
         <div className="rounded-xl bg-gray-50 p-3.5">

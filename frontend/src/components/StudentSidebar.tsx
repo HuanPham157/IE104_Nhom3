@@ -78,10 +78,14 @@ export default function StudentSidebar({
             Việc cá nhân
           </Link>
 
-          <button type="button" disabled title="Chức năng đang tạm hoãn" className={`${itemClass} cursor-not-allowed opacity-50`}>
+          <Link
+            href="/student/recorder"
+            aria-current={currentPage === 'recorder' ? 'page' : undefined}
+            className={`${itemClass} ${currentPage === 'recorder' ? activeClass : ''}`}
+          >
             <SidebarIcon name="mic" />
-            Phòng thi AI (tạm hoãn)
-          </button>
+            Thử micro
+          </Link>
 
           <Link
             href="/student/history"

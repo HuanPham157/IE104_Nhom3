@@ -6,11 +6,17 @@ export const metadata: Metadata = {
   description: 'Danh sách sinh viên và thông tin khảo thí của lớp học phần.',
 };
 
+const TABS = ['roster', 'assignments', 'stats'] as const;
+
 export default async function TeacherClassDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ classCode: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const { classCode } = await params;
-  return <TeacherClassDetail classId={classCode} />;
+  const { tab } = await searchParams;
+  const initialTab = TABS.find((item) => item === tab) ?? 'roster';
+  return <TeacherClassDetail classId={classCode} initialTab={initialTab} />;
 }

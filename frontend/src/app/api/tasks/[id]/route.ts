@@ -1,5 +1,13 @@
 import { z } from 'zod';
 import { authRequest, getProfileRole } from '@/services/supabase/server';
+import {
+  LEGACY_TASK_FIELDS,
+  MISSING_COLUMN,
+  TASK_FIELDS,
+  definedOnly,
+  updateTaskSchema,
+  withTaskDefaults,
+} from '@/lib/personal-tasks';
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -9,22 +17,11 @@ const json = (body: unknown, status = 200) =>
 
 const idSchema = z.string().uuid();
 
-const updateSchema = z
-  .object({
-    title: z.string().trim().min(1).max(120).optional(),
-    is_done: z.boolean().optional(),
-  })
-  .strict()
-  .refine(
-    (data) => data.title !== undefined || data.is_done !== undefined,
-    { message: 'Yêu cầu ít nhất một trường title hoặc is_done' }
-  );
-
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-// PATCH /api/tasks/:id : Cập nhật tiêu đề hoặc trạng thái hoàn thành
+// PATCH /api/tasks/:id : Cập nhật tên, ghi chú, hạn chót, ưu tiên hoặc trạng thái hoàn thành
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const auth = await authRequest(request);
@@ -41,23 +38,31 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const body = await request.json().catch(() => null);
-    const parsed = updateSchema.safeParse(body);
+    const parsed = updateTaskSchema.safeParse(body);
     if (!parsed.success) {
       return json({ error: 'Dữ liệu cập nhật không hợp lệ' }, 400);
     }
 
-    const updateData: { title?: string; is_done?: boolean } = {};
-    if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
-    if (parsed.data.is_done !== undefined) updateData.is_done = parsed.data.is_done;
-
+    const updateData = definedOnly(parsed.data);
     // Chỉ update dòng vừa khớp ID vừa khớp user_id của chính người gọi
-    const { data, error } = await auth.db
+    const update = (row: Record<string, unknown>, select: string) => auth.db
       .from('tasks')
-      .update(updateData)
+      .update(row)
       .eq('id', idParsed.data)
       .eq('user_id', auth.user.id)
-      .select('id,title,is_done,created_at')
+      .select(select)
       .maybeSingle();
+
+    let { data, error } = await update(updateData, TASK_FIELDS);
+    if (error?.code === MISSING_COLUMN) {
+      // Chưa có migration 008: chỉ sửa được tên và trạng thái như trước.
+      if (Object.keys(updateData).some((key) => key !== 'title' && key !== 'is_done')) {
+        return json({ error: 'Máy chủ chưa chạy migration 008 nên chưa lưu được hạn chót, ưu tiên và ghi chú.' }, 503);
+      }
+      const legacy = await update(updateData, LEGACY_TASK_FIELDS);
+      error = legacy.error;
+      data = legacy.data ? withTaskDefaults(legacy.data as unknown as Parameters<typeof withTaskDefaults>[0]) as unknown as typeof data : null;
+    }
 
     if (error) {
       return json({ error: 'Không thể cập nhật công việc' }, 500);

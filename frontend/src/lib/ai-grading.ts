@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { reportDatabaseError } from '@/lib/oralcheck-api';
-import { gradingNotesForQuestion } from '@/lib/exam-text';
+import { gradingNotesForQuestion, parseGradingGuide } from '@/lib/exam-text';
 
 export type AiCriterion = { criterion_id: string; awarded_points: number; assessment: string; evidence_excerpt: string; explanation: string };
 export type AiGradeOutcome = {
@@ -11,6 +11,20 @@ export type AiGradeOutcome = {
   needs_teacher_review: boolean;
   reference_answer: string;
 };
+
+type ContextCriterion = { id: string; text: string; max_points: number };
+
+/**
+ * Gắn "ý cần có" (phần sau "=>" trong barem) vào từng tiêu chí. Rubric được tạo từ chính barem theo thứ tự,
+ * nên ghép theo vị trí và chỉ khi nội dung tiêu chí trùng khớp — barem đã sửa lệch thì bỏ qua cho an toàn.
+ */
+function withExpectedContent(criteria: ContextCriterion[], guideText: string | null | undefined, position: number) {
+  const block = guideText ? parseGradingGuide(guideText).questions.find((item) => item.position === position) : undefined;
+  return criteria.map((criterion, index) => {
+    const parsed = block?.criteria[index];
+    return parsed?.expected && parsed.text === criterion.text ? { ...criterion, expected_content: parsed.expected } : criterion;
+  });
+}
 
 /**
  * Gọi AI service chấm một câu trả lời đã được "claim" (status = processing) rồi lưu đánh giá.
@@ -43,7 +57,7 @@ export async function runAiGrading(
         reference_answer: context.reference_answer,
         max_score: context.max_score,
         transcript: input.transcript,
-        criteria: context.criteria,
+        criteria: withExpectedContent(context.criteria, context.grading_guide, Number(context.position)),
         grading_notes: gradingNotesForQuestion(context.grading_guide, Number(context.position)),
       }),
       signal: AbortSignal.timeout(120_000),
@@ -51,7 +65,7 @@ export async function runAiGrading(
   } catch {
     throw new Error('Không kết nối được AI service. Kiểm tra AI_SERVICE_URL và bảo đảm dịch vụ đang chạy.');
   }
-  const result = await response.json().catch(() => null) as Partial<AiGradeOutcome> & { detail?: string } | null;
+  const result = await response.json().catch(() => null) as Partial<AiGradeOutcome> & { engine?: string; detail?: string } | null;
   if (!response.ok || !result || !Array.isArray(result.criteria) || typeof result.suggested_score !== 'number') {
     throw new Error(result?.detail ?? 'Dịch vụ chấm AI không trả kết quả hợp lệ');
   }
@@ -60,9 +74,10 @@ export async function runAiGrading(
     p_student_id: input.studentId,
     p_submission_id: input.submissionId,
     p_transcript_text: input.transcript,
-    p_engine_name: `whisper-${process.env.WHISPER_MODEL ?? 'base'}`,
+    p_engine_name: `faster-whisper-${process.env.WHISPER_MODEL ?? 'small'}`,
     p_language_code: 'vi',
-    p_model_name: process.env.OPENAI_GRADING_MODEL ?? 'gpt-4o-mini',
+    // Phiên bản engine chấm local (ví dụ local-grader-v1+vietnamese-sbert) để biết bài nào chấm bằng engine nào.
+    p_model_name: result.engine || 'local-grader',
     p_suggested_score: result.suggested_score,
     p_feedback_summary: result.feedback_summary ?? '',
     p_criteria: result.criteria,

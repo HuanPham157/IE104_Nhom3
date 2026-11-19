@@ -5,7 +5,7 @@ import {
   readJson,
   reportDatabaseError,
 } from '@/lib/oralcheck-api';
-import { saveAssignmentDuration, saveGradingGuide } from '@/lib/assignment-settings';
+import { saveAssignmentDuration, saveGradingGuide, saveMaxAttempts, saveReferenceAnswerVisibility } from '@/lib/assignment-settings';
 
 const idSchema = z.string().uuid();
 const rubricSchema = z
@@ -39,6 +39,8 @@ const assignmentSchema = z
     ends_at: z.string().datetime({ offset: true }).optional().nullable(),
     duration_minutes: z.number().int().min(1).max(600).optional().nullable(),
     grading_guide: z.string().max(20000).optional(),
+    show_reference_answer: z.boolean().optional(),
+    max_attempts: z.number().int().min(1).max(5).optional(),
     questions: z.array(questionSchema).min(1).max(100),
   })
   .strict()
@@ -107,7 +109,13 @@ export async function POST(request: Request, context: RouteContext) {
     return apiJson({ error: 'Thông tin bài tập không hợp lệ', details: parsed.error.flatten() }, 400);
   }
 
-  const { duration_minutes: durationMinutes, grading_guide: gradingGuide, ...assignmentContent } = parsed.data;
+  const {
+    duration_minutes: durationMinutes,
+    grading_guide: gradingGuide,
+    show_reference_answer: showReferenceAnswer,
+    max_attempts: maxAttempts,
+    ...assignmentContent
+  } = parsed.data;
   const { data: assignmentId, error } = await auth.value.db.rpc(
     'create_assignment_with_questions',
     {
@@ -127,6 +135,8 @@ export async function POST(request: Request, context: RouteContext) {
   const settingWarnings = [
     await saveAssignmentDuration(auth.value.db, assignmentId, durationMinutes),
     await saveGradingGuide(auth.value.db, assignmentId, gradingGuide),
+    await saveReferenceAnswerVisibility(auth.value.db, assignmentId, showReferenceAnswer),
+    await saveMaxAttempts(auth.value.db, assignmentId, maxAttempts),
   ].filter(Boolean);
   const durationWarning = settingWarnings.length ? settingWarnings.join(' ') : undefined;
 

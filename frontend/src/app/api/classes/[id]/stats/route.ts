@@ -114,14 +114,27 @@ export async function GET(request: Request, context: RouteContext) {
       answersByAttempt.set(answer.assignment_submission_id, list);
     }
 
-    const submittedAttempts = attempts.filter((attempt) => attempt.status !== 'in_progress' && studentIds.includes(attempt.student_id));
+    const allSubmitted = attempts.filter((attempt) => attempt.status !== 'in_progress' && studentIds.includes(attempt.student_id));
     // Điểm thang 10 của từng lượt làm đã có ít nhất một câu được chấm.
     const attemptScore10 = new Map<string, number>();
-    for (const attempt of submittedAttempts) {
+    for (const attempt of allSubmitted) {
       const scores = (answersByAttempt.get(attempt.id) ?? []).map((answer) => scoreOf(answer.id)).filter((score): score is number => score !== null);
       const max = maxByAssignment.get(attempt.assignment_id) ?? 0;
       if (scores.length && max > 0) attemptScore10.set(attempt.id, (scores.reduce((sum, score) => sum + score, 0) / max) * 10);
     }
+    // Làm lại nhiều lần (migration 009): mỗi sinh viên chỉ tính lượt điểm cao nhất, chưa có điểm thì lượt nộp gần nhất,
+    // để tỉ lệ nộp bài và điểm trung bình không bị đếm trùng.
+    const bestAttempt = new Map<string, (typeof allSubmitted)[number]>();
+    for (const attempt of allSubmitted) {
+      const key = `${attempt.assignment_id}:${attempt.student_id}`;
+      const current = bestAttempt.get(key);
+      const score = attemptScore10.get(attempt.id) ?? -1;
+      const currentScore = current ? attemptScore10.get(current.id) ?? -1 : -2;
+      if (!current || score > currentScore || (score === currentScore && (attempt.submitted_at ?? '') > (current.submitted_at ?? ''))) {
+        bestAttempt.set(key, attempt);
+      }
+    }
+    const submittedAttempts = [...bestAttempt.values()];
 
     const now = Date.now();
     const assignmentStats = assignmentRows.map((assignment) => {

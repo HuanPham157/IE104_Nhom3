@@ -1,17 +1,14 @@
-import DeferredFeatureNotice from '@/components/DeferredFeatureNotice';
+import StudentRecorder from '@/components/StudentRecorder';
 
 export const metadata = {
-  title: 'Kiểm tra thiết bị phòng thi - AIOralCheck',
-  description: 'Kiểm tra webcam, microphone và xác nhận quy chế phòng thi dành cho sinh viên.',
+  title: 'Thử micro - AIOralCheck',
+  description: 'Ghi thử và kiểm tra chất lượng micro trước khi làm bài vấn đáp.',
 };
 
-export default function StudentRecorderPage() {
-  return (
-    <DeferredFeatureNotice
-      title="Ghi âm câu trả lời"
-      description="Ghi âm, camera và nhận diện giọng nói đang được tạm hoãn. Bạn vẫn có thể xem lớp học và bài tập đã được công bố."
-      backHref="/student/classes"
-      backLabel="Xem lớp học"
-    />
-  );
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function StudentRecorderPage({ searchParams }: { searchParams: Promise<{ assignmentId?: string | string[] }> }) {
+  const { assignmentId } = await searchParams;
+  const returnAssignmentId = typeof assignmentId === 'string' && UUID_PATTERN.test(assignmentId) ? assignmentId : undefined;
+  return <StudentRecorder assignmentId={returnAssignmentId} />;
 }

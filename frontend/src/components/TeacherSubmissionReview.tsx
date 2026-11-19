@@ -5,11 +5,13 @@ import { useCallback, useEffect, useState } from 'react';
 import TeacherPageShell from '@/components/TeacherPageShell';
 import AnswerAnalysisPanel from '@/components/AnswerAnalysisPanel';
 import { oralcheckFetch } from '@/lib/oralcheck-client';
+import AudioPlayer from '@/components/AudioPlayer';
+import AssignmentHeaderBox from '@/components/AssignmentHeaderBox';
 import { assessmentLabel } from '@/lib/assessment';
 
 type RubricItem = { id: string; criterion_text: string; max_points: number };
 type ReviewData = {
-  answer: { id: string; status: string; audio_duration_seconds: number | null };
+  answer: { id: string; status: string; audio_duration_seconds: number | null; audio_mime_type?: string | null };
   attempt: { assignment_id: string; status: string };
   assignment: { title: string; results_published_at?: string | null };
   question: { content: string; reference_answer: string | null; position: number; max_score: number; rubric: RubricItem[] };
@@ -53,14 +55,23 @@ export default function TeacherSubmissionReview({ assignmentId, submissionId }: 
       .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : 'Không tải được bài làm.'); })
       .finally(() => { if (active) setLoading(false); });
     // Danh sách câu trả lời của bài tập để chuyển nhanh câu trước/sau.
-    oralcheckFetch<{ data: Array<{ student_name: string | null; answers: Array<{ id: string }> }> }>(`/api/assignments/${assignmentId}/submissions`)
+    oralcheckFetch<{ data: Array<{ student_name: string | null; attempt_index?: number; attempt_count?: number; answers: Array<{ id: string }> }> }>(`/api/assignments/${assignmentId}/submissions`)
       .then((result) => {
         if (!active) return;
-        setAnswerLinks(result.data.flatMap((attempt) => attempt.answers.map((answer, index) => ({ id: answer.id, label: `${attempt.student_name ?? 'Sinh viên'} · câu ${index + 1}` }))));
+        setAnswerLinks(result.data.flatMap((attempt) => attempt.answers.map((answer, index) => ({
+          id: answer.id,
+          label: `${attempt.student_name ?? 'Sinh viên'}${(attempt.attempt_count ?? 1) > 1 ? ` (lần ${attempt.attempt_index})` : ''} · câu ${index + 1}`,
+        }))));
       })
       .catch(() => undefined);
     return () => { active = false; };
   }, [assignmentId, submissionId, applyData]);
+
+  /** Chỉ xin lại signed URL của audio — không nạp lại cả bài để không mất điểm/nhận xét đang nhập. */
+  async function refreshAudioUrl(): Promise<string | null> {
+    const result = await oralcheckFetch<{ data: ReviewData }>(`/api/submissions/${submissionId}`);
+    return result.data.audio_url ?? null;
+  }
 
   async function reload() {
     const result = await oralcheckFetch<{ data: ReviewData }>(`/api/submissions/${submissionId}`);
@@ -123,11 +134,20 @@ export default function TeacherSubmissionReview({ assignmentId, submissionId }: 
         <Link href={`/teacher/evaluations/${assignmentId}`} className="text-sm text-gray-500 hover:text-black">← Danh sách bài nộp</Link>
         {answerLinks.length > 1 && <span className="text-xs text-gray-500">{currentIndex + 1}/{answerLinks.length} câu trả lời</span>}
       </div>
+      <div className="mt-4">
+        <AssignmentHeaderBox assignmentId={assignmentId}>
+          {data && <>
+            <p className="text-xs text-gray-500">Sinh viên</p>
+            <p className="font-bold text-gray-900">{data.student?.full_name ?? 'Sinh viên'}</p>
+            <p className="mt-1 text-xs text-gray-600">Câu {data.question.position} · tối đa {maxScore} điểm</p>
+          </>}
+        </AssignmentHeaderBox>
+      </div>
       {loading && <p className="mt-6 text-sm text-gray-500">Đang tải bài làm…</p>}
       {error && !data && <p role="alert" className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</p>}
       {data && <>
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
-          <div><p className="text-xs text-gray-500">{data.assignment.title} · {data.student?.full_name ?? 'Sinh viên'}</p><h1 className="mt-1 text-2xl font-bold">Câu {data.question.position} <span className="text-base font-medium text-gray-500">/ {maxScore} điểm</span></h1></div>
+          <h2 className="text-xl font-bold">Câu {data.question.position} <span className="text-base font-medium text-gray-500">/ {maxScore} điểm</span></h2>
           <div className="flex flex-wrap gap-2">
             {data.grade_review && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">✓ Đã duyệt: {data.grade_review.final_score}/{maxScore}</span>}
             <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">{ANSWER_STATUS[data.answer.status] ?? data.answer.status}</span>
@@ -137,7 +157,7 @@ export default function TeacherSubmissionReview({ assignmentId, submissionId }: 
         <section className="mt-5 rounded-xl border bg-white p-5">
           <h2 className="font-semibold">Đề bài</h2>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{data.question.content}</p>
-          <audio controls src={data.audio_url} className="mt-4 w-full" />
+          <AudioPlayer key={data.answer.id} src={data.audio_url} mimeType={data.answer.audio_mime_type} onRefresh={refreshAudioUrl} label="Bản ghi âm câu trả lời của sinh viên" className="mt-4" />
         </section>
 
         <section className="mt-4 rounded-xl border bg-white p-5">

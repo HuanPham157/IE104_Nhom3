@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import TeacherSidebar from '@/components/TeacherSidebar';
 import ScheduleSection from '@/components/assignment-builder/ScheduleSection';
 import GradingGuideSection from '@/components/assignment-builder/GradingGuideSection';
+import AssignmentList from '@/components/assignment-builder/AssignmentList';
 import QuickImportPanel from '@/components/assignment-builder/QuickImportPanel';
 import QuestionEditor from '@/components/assignment-builder/QuestionEditor';
 import { oralcheckFetch } from '@/lib/oralcheck-client';
@@ -16,7 +17,8 @@ import { parseGradingGuide } from '@/lib/exam-text';
 import type { CheckItem, QuestionDraft } from '@/lib/assignment-builder';
 import {
   TOTAL_POINTS, buildChecklist, computeEnd, defaultStartInput, formatDuration, fromLocalInput,
-  guideStatusByQuestion, secondsPerQuestion, toLocalInput, totalScore, withEvenScores,
+  guideDefinesQuestions, guideStatusByQuestion, secondsPerQuestion, syncQuestionsFromGuide, toLocalInput, totalScore,
+  withEvenScores,
 } from '@/lib/assignment-builder';
 
 interface ClassOption {
@@ -35,7 +37,10 @@ type LoadedAssignment = {
   ends_at: string | null;
   duration_minutes?: number | null;
   grading_guide?: string | null;
+  show_reference_answer?: boolean;
+  max_attempts?: number;
   status: string;
+  results_published_at?: string | null;
   questions: Array<{
     content: string;
     reference_answer?: string;
@@ -76,6 +81,8 @@ export default function TeacherQuestionBuilder() {
   const [instructions, setInstructions] = useState('');
   const [schedule, setSchedule] = useState(() => ({ startInput: defaultStartInput(), durationInput: '15', autoEnd: true, endInput: '' }));
   const [gradingGuide, setGradingGuide] = useState('');
+  const [showReferenceAnswer, setShowReferenceAnswer] = useState(false);
+  const [maxAttempts, setMaxAttempts] = useState(1);
   const [questions, setQuestions] = useState<QuestionDraft[]>(() => [newQuestion()]);
   const [pointsMode, setPointsMode] = useState<'auto' | 'manual'>('auto');
   const [showImport, setShowImport] = useState(false);
@@ -84,6 +91,12 @@ export default function TeacherQuestionBuilder() {
   const [successMessage, setSuccessMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [published, setPublished] = useState(false);
+  // Bài đã công bố/đóng được mở để xem lại: chỉ đọc, muốn sửa thì chuyển về bản nháp (khi chưa có bài làm).
+  const [viewStatus, setViewStatus] = useState<{ status: string; resultsPublished: boolean } | null>(null);
+  const [reopening, setReopening] = useState(false);
+  // Tăng sau mỗi lần lưu/công bố/mở lại để danh sách "Bài tập đã tạo" tải lại.
+  const [listVersion, setListVersion] = useState(0);
+  const readOnly = published || Boolean(viewStatus);
   const [signingOut, setSigningOut] = useState(false);
   const [adminMode, setAdminMode] = useState(false);
 
@@ -112,7 +125,9 @@ export default function TeacherQuestionBuilder() {
         if (requestedAssignmentId) {
           const { data: assignment } = await oralcheckFetch<{ data: LoadedAssignment }>(`/api/assignments/${requestedAssignmentId}`);
           if (!active) return;
-          if (assignment.status !== 'draft') throw new Error('Chỉ có thể tiếp tục chỉnh sửa bài tập đang ở trạng thái bản nháp.');
+          if (assignment.status !== 'draft') {
+            setViewStatus({ status: assignment.status, resultsPublished: Boolean(assignment.results_published_at) });
+          }
           const duration = assignment.duration_minutes
             ?? Math.max(1, Math.ceil(assignment.questions.reduce((sum, question) => sum + question.time_limit_seconds, 0) / 60));
           const autoEnd = Boolean(assignment.starts_at && assignment.ends_at
@@ -123,6 +138,8 @@ export default function TeacherQuestionBuilder() {
           setInstructions(assignment.instructions ?? '');
           setSchedule({ startInput: toLocalInput(assignment.starts_at), durationInput: String(duration), autoEnd, endInput: autoEnd ? '' : toLocalInput(assignment.ends_at) });
           setGradingGuide(assignment.grading_guide ?? guideFromLegacyRubric(assignment.questions));
+          setShowReferenceAnswer(Boolean(assignment.show_reference_answer));
+          setMaxAttempts(assignment.max_attempts ?? 1);
           setQuestions(assignment.questions.map((question, index) => newQuestion({
             content: question.content,
             referenceAnswer: question.reference_answer ?? '',
@@ -151,6 +168,8 @@ export default function TeacherQuestionBuilder() {
   const end = computeEnd(schedule.startInput, durationMinutes, schedule.autoEnd, schedule.endInput);
   const guide = useMemo(() => parseGradingGuide(gradingGuide), [gradingGuide]);
   const guideStatus = guideStatusByQuestion(guide, questions);
+  // Barem chứa đề bài → barem quyết định nội dung, đáp án và điểm của các câu tương ứng.
+  const guideDriven = guideDefinesQuestions(guide);
   const total = totalScore(questions);
   const checklist = buildChecklist({
     classSelected: Boolean(selectedClassId), title: assignmentTitle, questions, durationMinutes, start, end, guide, guideStatus, now,
@@ -190,6 +209,14 @@ export default function TeacherQuestionBuilder() {
     setPointsMode('manual');
     patchQuestion(key, { maxScore: score });
   }
+  /** Sửa barem (gõ, tải file, chèn mẫu): nếu barem có đề bài thì tạo/cập nhật câu hỏi theo barem. */
+  function changeGuide(text: string) {
+    setGradingGuide(text);
+    const parsed = parseGradingGuide(text);
+    if (!guideDefinesQuestions(parsed)) return;
+    setPointsMode('manual');
+    setQuestions((current) => syncQuestionsFromGuide(current, parsed, newQuestion, MAX_QUESTIONS));
+  }
   function applyGuidePoints(points: number[]) {
     setPointsMode('manual');
     setQuestions((current) => current.map((question, index) => ({ ...question, maxScore: points[index] ?? question.maxScore })));
@@ -228,6 +255,8 @@ export default function TeacherQuestionBuilder() {
       ends_at: end ? end.toISOString() : null,
       duration_minutes: durationMinutes,
       grading_guide: gradingGuide.trim(),
+      show_reference_answer: showReferenceAnswer,
+      max_attempts: maxAttempts,
       questions: questions.map((question, index) => ({
         content: question.content.trim(),
         reference_answer: question.referenceAnswer.trim(),
@@ -250,12 +279,14 @@ export default function TeacherQuestionBuilder() {
       if (assignmentId) {
         const result = await oralcheckFetch<{ warning?: string }>(`/api/assignments/${assignmentId}`, { method: 'PUT', body: JSON.stringify(payload) });
         setSuccessMessage(result.warning ?? 'Đã cập nhật bản nháp.');
+        setListVersion((value) => value + 1);
         return assignmentId;
       }
       const { data, warning } = await oralcheckFetch<{ data: { id: string }; warning?: string }>(
         `/api/classes/${selectedClassId}/assignments`, { method: 'POST', body: JSON.stringify(payload) },
       );
       setAssignmentId(data.id);
+      setListVersion((value) => value + 1);
       setSuccessMessage(warning ?? 'Đã lưu bản nháp. Bạn có thể tiếp tục chỉnh sửa trước khi công bố.');
       return data.id;
     } catch (error) {
@@ -273,10 +304,46 @@ export default function TeacherQuestionBuilder() {
     try {
       await oralcheckFetch(`/api/assignments/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'published' }) });
       setPublished(true);
+      setListVersion((value) => value + 1);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Không thể công bố bài tập.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  /**
+   * Bài đã có sinh viên làm (hoặc đã đóng/công bố điểm) không sửa được: chép đề, barem và câu hỏi sang một bản nháp mới
+   * cùng lớp. Bài cũ và bài nộp giữ nguyên; bản mới chỉ được tạo khi giảng viên bấm Lưu nháp/Công bố.
+   */
+  function duplicateAsNew() {
+    setAssignmentId(null);
+    setViewStatus(null);
+    setAssignmentTitle((title) => `${title} (bản mới)`.slice(0, 200));
+    setSchedule((current) => ({ ...current, startInput: defaultStartInput() }));
+    setQuestions((current) => current.map((question) => ({ ...question, fromGuide: false })));
+    setErrorMessage('');
+    setSuccessMessage('Đã chép đề sang bài tập mới (chưa lưu). Sửa xong bấm “Lưu nháp” hoặc “Công bố bài tập”; bài cũ và bài nộp của sinh viên giữ nguyên.');
+    // Bỏ assignmentId khỏi URL mà không dựng lại trang (dựng lại sẽ nạp lại bài cũ và mất bản chép).
+    window.history.replaceState(null, '', `/teacher/assignments/create?classId=${selectedClassId}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /** Chuyển bài đã công bố về bản nháp để sửa đề — máy chủ chỉ cho phép khi chưa sinh viên nào bắt đầu làm. */
+  async function reopenForEditing() {
+    if (!assignmentId) return;
+    setReopening(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      await oralcheckFetch(`/api/assignments/${assignmentId}`, { method: 'PATCH', body: JSON.stringify({ status: 'draft' }) });
+      setViewStatus(null);
+      setListVersion((value) => value + 1);
+      setSuccessMessage('Đã chuyển bài tập về bản nháp — sinh viên tạm thời không thấy bài này. Sửa xong hãy bấm “Công bố bài tập”.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Không thể mở lại bài tập để chỉnh sửa.');
+    } finally {
+      setReopening(false);
     }
   }
 
@@ -308,11 +375,11 @@ export default function TeacherQuestionBuilder() {
             <span className="font-semibold text-black">Soạn bài tập</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => void saveDraft()} disabled={saving || published} className="rounded-full border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-50">
+            <button type="button" onClick={() => void saveDraft()} disabled={saving || readOnly} className="rounded-full border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-50">
               {saving ? 'Đang lưu...' : assignmentId ? 'Cập nhật bản nháp' : 'Lưu nháp'}
             </button>
-            <button type="button" onClick={() => void publishAssignment()} disabled={saving || published} className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800 disabled:opacity-50">
-              {published ? 'Đã công bố' : saving ? 'Đang xử lý...' : 'Công bố bài tập'}
+            <button type="button" onClick={() => void publishAssignment()} disabled={saving || readOnly} className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800 disabled:opacity-50">
+              {readOnly ? 'Đã công bố' : saving ? 'Đang xử lý...' : 'Công bố bài tập'}
             </button>
           </div>
         </header>
@@ -324,8 +391,33 @@ export default function TeacherQuestionBuilder() {
             <p className="mt-1 text-xs text-gray-500">Đặt lịch làm bài, nhập đề (gõ tay hoặc từ file), viết barem chấm, rồi công bố cho lớp.</p>
           </div>
 
+          {viewStatus && assignmentId && (
+            <section className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs text-sky-900">
+              <p className="max-w-2xl leading-relaxed">
+                <strong>Bài tập {viewStatus.status === 'published' ? 'đã công bố' : 'đã đóng'} — đang ở chế độ xem.</strong>{' '}
+                {viewStatus.status === 'published' && !viewStatus.resultsPublished
+                  ? 'Chưa có sinh viên làm bài: bấm “Mở lại để chỉnh sửa” (bài tạm về bản nháp, sửa xong công bố lại). Đã có sinh viên làm: bấm “Tạo bài mới từ đề này” để sửa trên một bài mới, bài cũ giữ nguyên.'
+                  : 'Bài đã đóng hoặc đã công bố điểm nên không sửa được đề — bấm “Tạo bài mới từ đề này” để dùng lại đề.'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/teacher/evaluations/${assignmentId}`} className="rounded-full border border-sky-300 bg-white px-3 py-1.5 font-semibold text-sky-900 hover:bg-sky-100">Xem bài nộp &amp; chấm điểm</Link>
+                {viewStatus.status === 'published' && !viewStatus.resultsPublished && (
+                  <button type="button" onClick={() => void reopenForEditing()} disabled={reopening} className="rounded-full bg-sky-700 px-3 py-1.5 font-semibold text-white hover:bg-sky-800 disabled:opacity-50">
+                    {reopening ? 'Đang mở lại…' : 'Mở lại để chỉnh sửa'}
+                  </button>
+                )}
+                <button type="button" onClick={duplicateAsNew} className="rounded-full border border-sky-300 bg-white px-3 py-1.5 font-semibold text-sky-900 hover:bg-sky-100">
+                  Tạo bài mới từ đề này
+                </button>
+              </div>
+            </section>
+          )}
           {errorMessage && <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{errorMessage}</p>}
           {successMessage && <p role="status" className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">{successMessage}</p>}
+
+          <div className="mt-6">
+            <AssignmentList classes={classes} currentAssignmentId={assignmentId} refreshKey={listVersion} />
+          </div>
 
           <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
@@ -337,19 +429,19 @@ export default function TeacherQuestionBuilder() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <label htmlFor="assignment-class" className="block text-xs font-semibold text-gray-700">Lớp học *</label>
-                    <select id="assignment-class" value={selectedClassId} onChange={(event) => setSelectedClassId(event.target.value)} disabled={Boolean(assignmentId) || published} className={inputClass}>
+                    <select id="assignment-class" value={selectedClassId} onChange={(event) => setSelectedClassId(event.target.value)} disabled={Boolean(assignmentId) || readOnly} className={inputClass}>
                       <option value="">Chọn lớp đang hoạt động</option>
                       {classes.map((item) => <option key={item.id} value={item.id}>{item.class_name} ({item.class_code})</option>)}
                     </select>
                   </div>
                   <div className="space-y-1.5">
                     <label htmlFor="assignment-title" className="block text-xs font-semibold text-gray-700">Tên bài tập *</label>
-                    <input id="assignment-title" value={assignmentTitle} maxLength={200} onChange={(event) => setAssignmentTitle(event.target.value)} disabled={published} placeholder="Ví dụ: Kiểm tra vấn đáp chương 1" className={inputClass} />
+                    <input id="assignment-title" value={assignmentTitle} maxLength={200} onChange={(event) => setAssignmentTitle(event.target.value)} disabled={readOnly} placeholder="Ví dụ: Kiểm tra vấn đáp chương 1" className={inputClass} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="assignment-instructions" className="block text-xs font-semibold text-gray-700">Hướng dẫn cho sinh viên</label>
-                  <textarea id="assignment-instructions" value={instructions} maxLength={10000} rows={3} onChange={(event) => setInstructions(event.target.value)} disabled={published} placeholder="Ví dụ: Trả lời rõ ràng, nêu đủ ý chính; có thể ghi âm lại tối đa 5 lần mỗi câu." className={`${inputClass} leading-relaxed`} />
+                  <textarea id="assignment-instructions" value={instructions} maxLength={10000} rows={3} onChange={(event) => setInstructions(event.target.value)} disabled={readOnly} placeholder="Ví dụ: Trả lời rõ ràng, nêu đủ ý chính; có thể ghi âm lại tối đa 5 lần mỗi câu." className={`${inputClass} leading-relaxed`} />
                 </div>
               </section>
 
@@ -358,7 +450,7 @@ export default function TeacherQuestionBuilder() {
                 computedEnd={end}
                 perQuestionSeconds={perQuestionSeconds}
                 questionCount={questions.length}
-                disabled={published}
+                disabled={readOnly}
                 onChange={(patch) => setSchedule((current) => ({ ...current, ...patch }))}
               />
 
@@ -367,17 +459,50 @@ export default function TeacherQuestionBuilder() {
                 guide={guide}
                 status={guideStatus}
                 questions={questions}
-                disabled={published}
-                onChange={setGradingGuide}
+                disabled={readOnly}
+                onChange={changeGuide}
                 onApplyPoints={applyGuidePoints}
                 onError={setErrorMessage}
               />
 
+              <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={showReferenceAnswer}
+                    disabled={readOnly}
+                    onChange={(event) => setShowReferenceAnswer(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-black"
+                  />
+                  <span>
+                    <span className="block text-sm font-bold text-gray-900">Cho sinh viên xem đáp án tham khảo sau khi nộp bài</span>
+                    <span className="mt-1 block text-[11px] text-gray-500">Sinh viên chỉ thấy đáp án khi đã nộp bài, kèm so sánh với câu trả lời của mình. Có thể bật hoặc tắt lại trong trang Bài nộp sinh viên sau khi công bố.</span>
+                  </span>
+                </label>
+                <div className="mt-4 flex flex-wrap items-start gap-3 border-t border-gray-100 pt-4">
+                  <label htmlFor="assignment-max-attempts" className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-gray-900">Số lần làm tối đa</span>
+                    <span className="mt-1 block text-[11px] text-gray-500">
+                      Sinh viên được làm lại cả bài khi lượt trước đã có điểm (AI chấm xong hoặc đã công bố điểm) và bài còn trong hạn nộp. Điểm chính thức là lượt cao nhất được giảng viên duyệt.
+                    </span>
+                  </label>
+                  <select
+                    id="assignment-max-attempts"
+                    value={maxAttempts}
+                    disabled={readOnly}
+                    onChange={(event) => setMaxAttempts(Number(event.target.value))}
+                    className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm focus:border-black focus:outline-none disabled:bg-gray-100"
+                  >
+                    {[1, 2, 3, 4, 5].map((count) => <option key={count} value={count}>{count === 1 ? '1 lần (không làm lại)' : `${count} lần`}</option>)}
+                  </select>
+                </div>
+              </section>
+
               <section className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="mr-auto text-sm font-bold text-gray-900">Danh sách câu hỏi ({questions.length})</h2>
-                  <button type="button" disabled={published} onClick={() => setShowImport((value) => !value)} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40">Nhập đề nhanh / từ file</button>
-                  <button type="button" disabled={published} onClick={splitEvenly} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40">Chia đều {TOTAL_POINTS} điểm</button>
+                  <button type="button" disabled={readOnly || guideDriven} title={guideDriven ? 'Câu hỏi đang được tạo từ barem — sửa trong mục Barem' : undefined} onClick={() => setShowImport((value) => !value)} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40">Nhập đề nhanh / từ file</button>
+                  <button type="button" disabled={readOnly || guideDriven} title={guideDriven ? 'Điểm từng câu lấy từ barem' : undefined} onClick={splitEvenly} className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50 disabled:opacity-40">Chia đều {TOTAL_POINTS} điểm</button>
                   <span className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${pointsValid ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
                     Tổng: {total} / {TOTAL_POINTS}{pointsMode === 'auto' ? ' · tự chia' : ''}
                   </span>
@@ -400,14 +525,15 @@ export default function TeacherQuestionBuilder() {
                     count={questions.length}
                     guideBlock={guide.questions.find((block) => block.position === index + 1)}
                     guideStatus={guideStatus[index]}
-                    disabled={published}
+                    fromGuide={guideDriven && Boolean(guide.questions.find((block) => block.position === index + 1)?.content)}
+                    disabled={readOnly}
                     onChange={(patch) => patchQuestion(question.key, patch)}
                     onScoreChange={(score) => setScore(question.key, score)}
                     onMove={(direction) => moveQuestion(question.key, direction)}
                     onRemove={() => removeQuestion(question.key)}
                   />
                 ))}
-                <button type="button" onClick={addQuestion} disabled={published || questions.length >= MAX_QUESTIONS} className="w-full rounded-2xl border-2 border-dashed border-gray-300 bg-white py-3.5 text-xs font-semibold text-gray-700 hover:border-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                <button type="button" onClick={addQuestion} disabled={readOnly || questions.length >= MAX_QUESTIONS} className="w-full rounded-2xl border-2 border-dashed border-gray-300 bg-white py-3.5 text-xs font-semibold text-gray-700 hover:border-gray-500 hover:bg-gray-50 disabled:opacity-50">
                   + Thêm câu hỏi
                 </button>
               </section>
@@ -459,7 +585,7 @@ export default function TeacherQuestionBuilder() {
                   {end ? ` đến ${end.toLocaleString('vi-VN')}` : ''}, mỗi lượt {durationMinutes} phút.
                 </p>
                 <div className="mt-5 flex justify-end">
-                  <button type="button" onClick={() => router.push(`/teacher/classes/${selectedClassId}`)} className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800">Về lớp học</button>
+                  <button type="button" onClick={() => router.push(`/teacher/classes/${selectedClassId}?tab=assignments`)} className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800">Về lớp học</button>
                 </div>
               </section>
             </div>

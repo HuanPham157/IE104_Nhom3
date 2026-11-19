@@ -75,7 +75,7 @@ export async function POST(request: Request, context: RouteContext) {
     const { error: transcriptError } = await auth.value.db.rpc('save_submission_transcription', {
       p_submission_id: id,
       p_transcript_text: result.transcript,
-      p_engine_name: `whisper-${process.env.WHISPER_MODEL ?? 'base'}`,
+      p_engine_name: `faster-whisper-${process.env.WHISPER_MODEL ?? 'small'}`,
       p_language_code: 'vi',
       p_is_edited: false,
     });

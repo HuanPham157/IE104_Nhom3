@@ -6,22 +6,15 @@ import StudentPageShell from '@/components/StudentPageShell';
 import QuestionMatrix from '@/components/assignment/QuestionMatrix';
 import QuestionAnswerCard from '@/components/assignment/QuestionAnswerCard';
 import SubmissionAnalysis from '@/components/assignment/SubmissionAnalysis';
+import RetakePanel, { type RetakeStatus } from '@/components/assignment/RetakePanel';
 import { oralcheckFetch } from '@/lib/oralcheck-client';
+import {
+  getSpeechRecognition, microphoneErrorMessage, openMicrophone, pickRecorderMimeType, type LiveRecognition,
+} from '@/lib/microphone';
 import type {
   AnswerVersion, AssignmentQuestion, Criterion, QuestionGrade, QuestionProgress, VersionStatus, WorkTileState,
 } from '@/components/assignment/types';
 import { MAX_VERSIONS_PER_QUESTION, finalVersionOf, formatClock, isVersionReady, notReadyReason, resultLevelOf } from '@/components/assignment/types';
-
-type LiveRecognition = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: { results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
-  onerror: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-type LiveRecognitionConstructor = new () => LiveRecognition;
 
 type ServerVersion = {
   id: string;
@@ -47,6 +40,8 @@ interface AssignmentDetail {
   results_published_at?: string | null;
   questions: AssignmentQuestion[];
   ai_workflow_ready?: boolean;
+  /** Làm lại cả bài (migration 009); null khi máy chủ chưa hỗ trợ. */
+  retake?: RetakeStatus | null;
   my_submission?: null | {
     attempt_id: string;
     status: string;
@@ -219,14 +214,13 @@ export default function StudentAssignmentDetail({ assignmentId }: { assignmentId
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((type) => MediaRecorder.isTypeSupported(type));
+      const stream = await openMicrophone();
+      const mimeType = pickRecorderMimeType();
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       const startedAt = currentTimeMs();
       chunksRef.current = [];
 
-      const recognitionApi = window as Window & { SpeechRecognition?: LiveRecognitionConstructor; webkitSpeechRecognition?: LiveRecognitionConstructor };
-      const Recognition = recognitionApi.SpeechRecognition ?? recognitionApi.webkitSpeechRecognition;
+      const Recognition = getSpeechRecognition();
       let liveTranscript = '';
       if (Recognition) {
         const recognition = new Recognition();
@@ -257,8 +251,8 @@ export default function StudentAssignmentDetail({ assignmentId }: { assignmentId
       setRecording({ questionId: question.id, startedAt, liveTranscript: '', liveSupported: Boolean(Recognition) });
       // Tự dừng khi hết thời gian cho phép của câu hỏi.
       autoStopRef.current = window.setTimeout(stopRecording, question.time_limit_seconds * 1000);
-    } catch {
-      setWorkflowError('Không thể truy cập microphone. Hãy cho phép trình duyệt sử dụng micro rồi thử lại.');
+    } catch (error) {
+      setWorkflowError(microphoneErrorMessage(error));
     }
   }
 
@@ -350,7 +344,7 @@ export default function StudentAssignmentDetail({ assignmentId }: { assignmentId
     if (!version?.id || !version.transcript?.trim()) return;
     setGrade(questionId, { status: 'grading' });
     try {
-      const { data } = await oralcheckFetch<{ data: { suggested_score: number; feedback_summary: string; criteria: Criterion[]; needs_teacher_review: boolean; reference_answer: string } }>(
+      const { data } = await oralcheckFetch<{ data: { suggested_score: number; feedback_summary: string; criteria: Criterion[]; needs_teacher_review: boolean; reference_answer: string | null } }>(
         `/api/submissions/${version.id}/grade`,
         { method: 'POST', body: JSON.stringify({ transcript: version.transcript, is_edited: version.transcript !== version.originalTranscript }) },
       );
@@ -360,7 +354,7 @@ export default function StudentAssignmentDetail({ assignmentId }: { assignmentId
         feedback: data.feedback_summary,
         criteria: data.criteria,
         needsTeacherReview: data.needs_teacher_review,
-        referenceAnswer: data.reference_answer,
+        referenceAnswer: data.reference_answer ?? undefined,
       });
     } catch (error) {
       setGrade(questionId, { status: 'failed', error: error instanceof Error ? error.message : 'Không thể chấm bài bằng AI.' });
@@ -474,6 +468,11 @@ export default function StudentAssignmentDetail({ assignmentId }: { assignmentId
                 {starting ? 'Đang bắt đầu…' : 'Bắt đầu làm bài'}
               </button>
               {(notYetOpen || pastDue || assignment.status !== 'published') && <p className="mt-3 text-xs text-gray-500">{notYetOpen ? 'Bài tập chưa đến giờ mở.' : 'Bài tập đã đóng.'}</p>}
+              <p className="mt-4 text-sm">
+                <Link href={`/student/recorder?assignmentId=${assignmentId}`} className="font-semibold text-indigo-700 underline underline-offset-2 hover:text-indigo-900">
+                  Thử micro trước khi làm bài →
+                </Link>
+              </p>
             </section>
           )}
 
@@ -554,6 +553,13 @@ export default function StudentAssignmentDetail({ assignmentId }: { assignmentId
           </>}
 
           {/* Giai đoạn 3: đã nộp — ma trận đúng/sai và phân tích */}
+          {phase === 'submitted' && (
+            <RetakePanel
+              assignmentId={assignmentId}
+              initialStatus={assignment.retake}
+              refreshKey={questions.filter((question) => progress[question.id]?.grade?.status === 'graded').length}
+            />
+          )}
           {phase === 'submitted' && (
             <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="order-2 lg:order-1">

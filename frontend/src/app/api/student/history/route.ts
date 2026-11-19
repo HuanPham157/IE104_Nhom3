@@ -84,6 +84,16 @@ export async function GET(request: Request) {
   const totalByAttempt = new Map(publishedResults.map((result) => [result.id, result.total_score]));
   const progressByAnswer = new Map(ownProgress.flat().map((answer) => [answer.id, answer]));
 
+  // Làm lại nhiều lần (migration 009): số thứ tự lượt theo thời điểm bắt đầu, và lượt có điểm đã công bố cao nhất.
+  const attemptMeta = new Map<string, { attempt_index: number; attempt_count: number; is_best: boolean }>();
+  for (const assignmentId of assignmentIds) {
+    const list = attempts.filter((attempt) => attempt.assignment_id === assignmentId).sort((a, b) => a.started_at.localeCompare(b.started_at));
+    const best = list
+      .filter((attempt) => totalByAttempt.get(attempt.id) !== undefined && totalByAttempt.get(attempt.id) !== null)
+      .reduce<(typeof list)[number] | null>((top, attempt) => (!top || Number(totalByAttempt.get(attempt.id)) > Number(totalByAttempt.get(top.id)) ? attempt : top), null);
+    list.forEach((attempt, index) => attemptMeta.set(attempt.id, { attempt_index: index + 1, attempt_count: list.length, is_best: attempt.id === best?.id }));
+  }
+
   const data = attempts.map((attempt) => {
     const assignment = assignmentById.get(attempt.assignment_id);
     const attemptAnswers = answers.filter((answer) => answer.assignment_submission_id === attempt.id);
@@ -95,6 +105,7 @@ export async function GET(request: Request) {
       submitted_at: attempt.submitted_at,
       graded_at: attempt.graded_at,
       results_published: Boolean(assignment?.results_published_at),
+      ...attemptMeta.get(attempt.id),
       total_score: totalByAttempt.get(attempt.id) ?? null,
       max_total: attemptQuestions.reduce((sum, question) => sum + Number(question.max_score), 0),
       assignment: assignment ? { id: assignment.id, title: assignment.title, ends_at: assignment.ends_at } : null,

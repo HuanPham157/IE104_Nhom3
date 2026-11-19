@@ -368,7 +368,7 @@ export default function TeacherClasses() {
                     key={item.code}
                     item={item}
                     index={index}
-                    onOpen={() => router.push(`/teacher/classes/${item.id}`)}
+                    onOpen={() => router.push(`/teacher/classes/${item.id}?tab=assignments`)}
                   />
                 ))}
                 {!loading && visibleCourses.length === 0 && (

@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { reportDatabaseError } from '@/lib/oralcheck-api';
 
 export const AUDIO_BUCKET = 'oral-answers';
-const SIGNED_URL_TTL_SECONDS = 600;
+// 30 phút: đủ cho giảng viên nghe và chấm cả bài; hết hạn thì AudioPlayer tự xin liên kết mới.
+const SIGNED_URL_TTL_SECONDS = 1800;
 
 /**
  * Tạo signed URL ngắn hạn cho nhiều tệp audio trong bucket private.

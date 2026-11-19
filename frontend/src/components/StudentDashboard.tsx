@@ -76,9 +76,27 @@ type ResultAttempt = {
   results_published: boolean;
   total_score: number | null;
   max_total: number;
+  /** Làm lại nhiều lần: lượt được tính điểm chính thức (lượt cao nhất). */
+  is_best?: boolean;
   assignment: { id: string; title: string } | null;
   class: { class_name: string; class_code: string } | null;
 };
+
+/**
+ * Làm lại nhiều lần thì /api/student/history trả mỗi lượt một dòng — gom về một dòng mỗi bài tập:
+ * ưu tiên lượt `preferred`, nếu không có thì lượt có `score` cao nhất.
+ */
+function onePerAssignment(items: ResultAttempt[], preferred: (item: ResultAttempt) => boolean, score: (item: ResultAttempt) => number) {
+  const byAssignment = new Map<string, ResultAttempt>();
+  for (const item of items) {
+    const key = item.assignment?.id ?? item.id;
+    const current = byAssignment.get(key);
+    if (!current || (preferred(item) && !preferred(current)) || (preferred(item) === preferred(current) && score(item) > score(current))) {
+      byAssignment.set(key, item);
+    }
+  }
+  return [...byAssignment.values()];
+}
 type StudentNotification = { id: string; title: string; message: string; notification_type: string | null; related_entity_type: string | null; related_entity_id: string | null; is_read: boolean; created_at: string };
 
 export default function StudentDashboard() {
@@ -166,8 +184,16 @@ export default function StudentDashboard() {
   if (!profile) return null;
 
   const name = profile.full_name || 'Sinh viên';
-  const published = results.filter((item) => item.results_published && item.total_score !== null);
-  const waiting = results.filter((item) => item.status !== 'in_progress' && !item.results_published);
+  const published = onePerAssignment(
+    results.filter((item) => item.results_published && item.total_score !== null),
+    (item) => Boolean(item.is_best),
+    (item) => Number(item.total_score),
+  );
+  const waiting = onePerAssignment(
+    results.filter((item) => item.status !== 'in_progress' && !item.results_published),
+    () => false,
+    (item) => new Date(item.submitted_at ?? 0).getTime(),
+  );
   const average = published.length
     ? published.reduce((sum, item) => sum + (Number(item.total_score) / (item.max_total || 10)) * 10, 0) / published.length
     : null;

@@ -1,0 +1,156 @@
+{
+  "_note": "Bộ dữ liệu tổng hợp để chọn model và hiệu chỉnh ngưỡng (giai đoạn 0). expected_score là điểm do nhóm phát triển ước lượng như một giảng viên, KHÔNG phải điểm giảng viên thật. split=calib dùng để chỉnh ngưỡng, split=test chỉ dùng để đánh giá. Thay/bổ sung bằng dữ liệu thật từ grade_reviews khi có.",
+  "questions": [
+    {
+      "id": "stack",
+      "split": "calib",
+      "question": "Trình bày nguyên tắc hoạt động của ngăn xếp (stack) và cho một ví dụ ứng dụng.",
+      "reference_answer": "Ngăn xếp hoạt động theo nguyên tắc vào sau ra trước (LIFO). Thao tác push thêm phần tử vào đỉnh, thao tác pop lấy phần tử ở đỉnh ra. Ví dụ ứng dụng: quản lý lời gọi hàm, chức năng hoàn tác (undo).",
+      "max_score": 5,
+      "criteria": [
+        { "id": "stack-c1", "text": "Nêu đúng nguyên tắc hoạt động", "max_points": 2, "expected_content": "vào sau ra trước (LIFO)" },
+        { "id": "stack-c2", "text": "Nêu thao tác push và pop", "max_points": 1.5, "expected_content": "push thêm phần tử vào đỉnh; pop lấy phần tử ở đỉnh ra" },
+        { "id": "stack-c3", "text": "Cho ví dụ ứng dụng", "max_points": 1.5, "expected_content": "quản lý lời gọi hàm | hoàn tác (undo)" }
+      ],
+      "answers": [
+        { "id": "full", "transcript": "Dạ ngăn xếp là cấu trúc dữ liệu mà phần tử nào đưa vào sau thì sẽ được lấy ra trước, gọi là LIFO. Khi push thì mình thêm một phần tử lên trên đỉnh, còn pop thì lấy phần tử trên đỉnh ra. Ví dụ như chức năng undo trong Word, bấm ctrl z thì nó hoàn tác thao tác gần nhất.", "expected_score": 5 },
+        { "id": "asr", "transcript": "cấu chốt giữ liệu ngăn xếp hoạt động theo nguyên tắc vào sau ra trước, thao tắc pút thêm phần tử vào đỉng, thao tắc póp lấy phần tử ở đỉng ra. ứng dụng là quản lý lời gọi hàm trong chương trình.", "expected_score": 4.5 },
+        { "id": "partial", "transcript": "Ngăn xếp thì phần tử vào sau sẽ ra trước ạ. Em chỉ nhớ vậy thôi.", "expected_score": 2 },
+        { "id": "wrong", "transcript": "Ngăn xếp hoạt động theo nguyên tắc vào trước ra trước, phần tử nào vào đầu tiên thì lấy ra đầu tiên, giống như xếp hàng mua vé.", "expected_score": 0.5 },
+        { "id": "offtopic", "transcript": "TCP là giao thức hướng kết nối, nó bắt tay ba bước rồi mới truyền dữ liệu.", "expected_score": 0 },
+        { "id": "short", "transcript": "Dạ à ừm em không nhớ ạ.", "expected_score": 0 }
+      ]
+    },
+    {
+      "id": "tcp-udp",
+      "split": "calib",
+      "question": "So sánh giao thức TCP và UDP.",
+      "reference_answer": "TCP là giao thức hướng kết nối, thiết lập kết nối bằng bắt tay ba bước, đảm bảo dữ liệu đến đủ và đúng thứ tự nhờ cơ chế xác nhận và truyền lại. UDP không cần thiết lập kết nối, không đảm bảo tin cậy hay thứ tự nhưng nhanh và nhẹ hơn, phù hợp cho truyền video trực tiếp, game, gọi thoại.",
+      "max_score": 5,
+      "criteria": [
+        { "id": "tcp-c1", "text": "Nêu đặc điểm của TCP", "max_points": 2 },
+        { "id": "tcp-c2", "text": "Nêu đặc điểm của UDP", "max_points": 2 },
+        { "id": "tcp-c3", "text": "Nêu trường hợp sử dụng phù hợp", "max_points": 1 }
+      ],
+      "answers": [
+        { "id": "full", "transcript": "TCP thì phải kết nối trước, có bắt tay ba bước, nó đảm bảo gói tin tới đủ và đúng thứ tự vì có xác nhận và gửi lại nếu mất. Còn UDP thì không cần kết nối, gửi luôn, không đảm bảo tới đủ nhưng mà nhanh hơn. Nên UDP hay dùng cho xem livestream, chơi game online hay gọi video.", "expected_score": 5 },
+        { "id": "asr", "transcript": "ti xi pi là giao thức hướng kết nối có bắt tay ba bước, đảm bảo tin cậy và đúng thứ tự. diu đi pi thì không kết nối, không đảm bảo tin cậy nhưng nhanh, dùng cho gọi thoại với game.", "expected_score": 4.5 },
+        { "id": "partial", "transcript": "TCP là giao thức tin cậy, có kết nối, dữ liệu đến đúng thứ tự. Còn UDP thì em chưa học kỹ.", "expected_score": 2 },
+        { "id": "wrong", "transcript": "TCP không cần kết nối và không đảm bảo thứ tự, còn UDP thì có bắt tay ba bước và đảm bảo dữ liệu đến đầy đủ.", "expected_score": 0.5 },
+        { "id": "offtopic", "transcript": "Ngăn xếp là cấu trúc vào sau ra trước, dùng để quản lý lời gọi hàm.", "expected_score": 0 },
+        { "id": "short", "transcript": "TCP với UDP là hai giao thức.", "expected_score": 0.5 }
+      ]
+    },
+    {
+      "id": "encapsulation",
+      "split": "calib",
+      "question": "Tính đóng gói (encapsulation) trong lập trình hướng đối tượng là gì?",
+      "reference_answer": "Đóng gói là gom dữ liệu và các phương thức xử lý dữ liệu đó vào trong một lớp, đồng thời che giấu chi tiết bên trong. Bên ngoài chỉ truy cập dữ liệu thông qua các phương thức công khai như getter, setter, nhờ đó bảo vệ dữ liệu khỏi bị thay đổi tùy tiện.",
+      "max_score": 5,
+      "criteria": [],
+      "answers": [
+        { "id": "full", "transcript": "Đóng gói là mình gom thuộc tính với phương thức vào chung một class, rồi để thuộc tính private để che giấu bên trong. Muốn đọc hay sửa thì phải đi qua getter setter, như vậy dữ liệu được bảo vệ, không ai sửa bừa được.", "expected_score": 5 },
+        { "id": "asr", "transcript": "đóng gói là gom dữ liệu với phương thức vào một lớp, che giấu chi tiết bên trong, bên ngoài truy cập qua ghét tơ xét tơ để bảo vệ dữ liệu.", "expected_score": 4.5 },
+        { "id": "partial", "transcript": "Đóng gói là gom dữ liệu và phương thức vào một lớp ạ.", "expected_score": 2 },
+        { "id": "wrong", "transcript": "Đóng gói là cho lớp con kế thừa lại thuộc tính và phương thức của lớp cha để tái sử dụng code.", "expected_score": 0 },
+        { "id": "offtopic", "transcript": "UDP là giao thức không kết nối, dùng cho game và livestream.", "expected_score": 0 },
+        { "id": "short", "transcript": "Ờ đóng gói là đóng gói ạ.", "expected_score": 0 }
+      ]
+    },
+    {
+      "id": "binary-search",
+      "split": "calib",
+      "question": "Trình bày ý tưởng và độ phức tạp của thuật toán tìm kiếm nhị phân.",
+      "reference_answer": "Tìm kiếm nhị phân chỉ áp dụng trên mảng đã được sắp xếp. Mỗi bước so sánh giá trị cần tìm với phần tử ở giữa, nếu nhỏ hơn thì tìm tiếp nửa trái, lớn hơn thì tìm nửa phải, nhờ đó loại bỏ một nửa phạm vi tìm kiếm. Độ phức tạp thời gian là O(log n).",
+      "max_score": 5,
+      "criteria": [
+        { "id": "bs-c1", "text": "Nêu điều kiện mảng đã sắp xếp", "max_points": 1, "expected_content": "mảng phải được sắp xếp" },
+        { "id": "bs-c2", "text": "Trình bày ý tưởng chia đôi", "max_points": 2.5, "expected_content": "so sánh với phần tử ở giữa; tìm tiếp nửa trái hoặc nửa phải; loại bỏ một nửa phạm vi" },
+        { "id": "bs-c3", "text": "Nêu độ phức tạp", "max_points": 1.5, "expected_content": "O(log n)" }
+      ],
+      "answers": [
+        { "id": "full", "transcript": "Điều kiện là dãy phải sắp xếp rồi. Mình lấy phần tử ở giữa ra so, nếu số cần tìm nhỏ hơn thì bỏ nửa bên phải đi tìm bên trái, lớn hơn thì ngược lại, mỗi lần bỏ được một nửa. Nên độ phức tạp là O log n.", "expected_score": 5 },
+        { "id": "asr", "transcript": "mảng phải được sắp xếp, so sánh với phần tử ở giữa rồi tìm nửa trái hoặc nửa phải, độ phức tạp là ô lốc en.", "expected_score": 4.5 },
+        { "id": "partial", "transcript": "Tìm kiếm nhị phân là mỗi lần chia đôi mảng ra để tìm ạ, em không nhớ độ phức tạp.", "expected_score": 2 },
+        { "id": "wrong", "transcript": "Tìm kiếm nhị phân duyệt lần lượt từng phần tử từ đầu đến cuối mảng, độ phức tạp là O(n), không cần mảng sắp xếp.", "expected_score": 0 },
+        { "id": "offtopic", "transcript": "Đóng gói là che giấu dữ liệu trong lớp và dùng getter setter.", "expected_score": 0 },
+        { "id": "short", "transcript": "Dạ O log n.", "expected_score": 1.5 }
+      ]
+    },
+    {
+      "id": "queue",
+      "split": "test",
+      "question": "Hàng đợi (queue) hoạt động như thế nào? Nêu một ứng dụng.",
+      "reference_answer": "Hàng đợi hoạt động theo nguyên tắc vào trước ra trước (FIFO). Thao tác enqueue thêm phần tử vào cuối hàng, dequeue lấy phần tử ở đầu hàng ra. Ứng dụng: hàng đợi in ấn, lập lịch tiến trình, duyệt đồ thị theo chiều rộng (BFS).",
+      "max_score": 5,
+      "criteria": [
+        { "id": "q-c1", "text": "Nêu đúng nguyên tắc hoạt động", "max_points": 2, "expected_content": "vào trước ra trước (FIFO)" },
+        { "id": "q-c2", "text": "Nêu thao tác enqueue và dequeue", "max_points": 1.5, "expected_content": "enqueue thêm vào cuối hàng; dequeue lấy ở đầu hàng" },
+        { "id": "q-c3", "text": "Nêu ứng dụng", "max_points": 1.5, "expected_content": "hàng đợi in ấn | lập lịch tiến trình | duyệt BFS" }
+      ],
+      "answers": [
+        { "id": "full", "transcript": "Queue thì ai vào trước được phục vụ trước, gọi là FIFO. Enqueue là thêm phần tử vào cuối, dequeue là lấy phần tử đầu ra. Ví dụ máy in, lệnh in nào gửi trước thì in trước.", "expected_score": 5 },
+        { "id": "asr", "transcript": "hàng đợi hoạt động theo nguyên tắc vào trước ra trước, en kiu thêm vào cuối hàng, đi kiu lấy ở đầu hàng, ứng dụng là duyệt bê ép ét trong đồ thị.", "expected_score": 4.5 },
+        { "id": "partial", "transcript": "Hàng đợi là vào trước thì ra trước ạ, giống xếp hàng.", "expected_score": 2 },
+        { "id": "wrong", "transcript": "Hàng đợi hoạt động theo nguyên tắc vào sau ra trước, phần tử mới nhất được lấy ra đầu tiên.", "expected_score": 0.5 },
+        { "id": "offtopic", "transcript": "Tiến trình là chương trình đang chạy, có không gian bộ nhớ riêng.", "expected_score": 0 },
+        { "id": "short", "transcript": "Dạ em chưa học phần này.", "expected_score": 0 }
+      ]
+    },
+    {
+      "id": "process-thread",
+      "split": "test",
+      "question": "Phân biệt tiến trình (process) và luồng (thread).",
+      "reference_answer": "Tiến trình là một chương trình đang thực thi, có không gian địa chỉ bộ nhớ riêng, các tiến trình độc lập với nhau. Luồng là đơn vị thực thi bên trong tiến trình, các luồng của cùng tiến trình dùng chung bộ nhớ nên tạo và chuyển đổi nhanh hơn nhưng cần đồng bộ để tránh xung đột dữ liệu.",
+      "max_score": 5,
+      "criteria": [
+        { "id": "pt-c1", "text": "Nêu đặc điểm của tiến trình", "max_points": 2 },
+        { "id": "pt-c2", "text": "Nêu đặc điểm của luồng", "max_points": 2 },
+        { "id": "pt-c3", "text": "Nêu vấn đề đồng bộ khi dùng chung bộ nhớ", "max_points": 1 }
+      ],
+      "answers": [
+        { "id": "full", "transcript": "Process là chương trình đang chạy, mỗi process có vùng nhớ riêng, không đụng nhau. Thread thì nằm trong process, nhiều thread xài chung bộ nhớ của process nên tạo nhanh, chuyển nhanh, nhưng phải đồng bộ, khóa lại không thì bị tranh chấp dữ liệu.", "expected_score": 5 },
+        { "id": "asr", "transcript": "tiến trình là chương trình đang thực thi có không gian địa chỉ riêng. luồng là đơn vị thực thi trong tiến trình, dùng chung bộ nhớ, nhanh hơn nhưng phải đồng bộ.", "expected_score": 5 },
+        { "id": "partial", "transcript": "Tiến trình là chương trình đang chạy và có bộ nhớ riêng ạ.", "expected_score": 2 },
+        { "id": "wrong", "transcript": "Luồng có không gian bộ nhớ riêng hoàn toàn, còn các tiến trình thì dùng chung bộ nhớ với nhau.", "expected_score": 0.5 },
+        { "id": "offtopic", "transcript": "Mã lỗi 404 nghĩa là không tìm thấy trang.", "expected_score": 0 },
+        { "id": "short", "transcript": "Ừm tiến trình với luồng ạ.", "expected_score": 0 }
+      ]
+    },
+    {
+      "id": "normalization",
+      "split": "test",
+      "question": "Thế nào là một bảng đạt dạng chuẩn 1 (1NF)?",
+      "reference_answer": "Một bảng đạt dạng chuẩn 1 khi mọi thuộc tính đều mang giá trị nguyên tố, tức là không chia nhỏ được, không có thuộc tính đa trị hay nhóm lặp, và mỗi dòng được xác định duy nhất bởi khóa chính.",
+      "max_score": 5,
+      "criteria": [],
+      "answers": [
+        { "id": "full", "transcript": "Bảng đạt 1NF là mỗi ô chỉ chứa một giá trị đơn, không tách nhỏ được nữa, không có cột chứa nhiều giá trị hay nhóm cột lặp lại, và có khóa chính để xác định từng dòng.", "expected_score": 5 },
+        { "id": "asr", "transcript": "dạng chuẩn một là các thuộc tính mang giá trị nguyên tố, không có thuộc tính đa trị, mỗi dòng xác định bởi khóa chính.", "expected_score": 5 },
+        { "id": "partial", "transcript": "Dạng chuẩn 1 là các thuộc tính phải là giá trị nguyên tố ạ.", "expected_score": 2.5 },
+        { "id": "wrong", "transcript": "Dạng chuẩn 1 cho phép một ô chứa nhiều giá trị, miễn là bảng có khóa ngoại.", "expected_score": 0 },
+        { "id": "offtopic", "transcript": "Hàng đợi là vào trước ra trước, dùng cho máy in.", "expected_score": 0 },
+        { "id": "short", "transcript": "Dạ chuẩn một ạ.", "expected_score": 0 }
+      ]
+    },
+    {
+      "id": "http-status",
+      "split": "test",
+      "question": "Phân biệt mã trạng thái HTTP 404 và 500.",
+      "reference_answer": "404 Not Found là lỗi phía client: tài nguyên được yêu cầu không tồn tại trên máy chủ, thường do sai đường dẫn. 500 Internal Server Error là lỗi phía máy chủ: máy chủ gặp sự cố khi xử lý yêu cầu, ví dụ lỗi trong mã nguồn hoặc cơ sở dữ liệu.",
+      "max_score": 5,
+      "criteria": [
+        { "id": "http-c1", "text": "Giải thích mã 404", "max_points": 2.5, "expected_content": "không tìm thấy tài nguyên; lỗi phía client | sai đường dẫn" },
+        { "id": "http-c2", "text": "Giải thích mã 500", "max_points": 2.5, "expected_content": "lỗi phía máy chủ; máy chủ gặp sự cố khi xử lý yêu cầu" }
+      ],
+      "answers": [
+        { "id": "full", "transcript": "404 là không tìm thấy trang, lỗi do phía người dùng gõ sai link hoặc trang không tồn tại. 500 là server bị lỗi nội bộ khi xử lý, ví dụ code backend bị exception hay database sập.", "expected_score": 5 },
+        { "id": "asr", "transcript": "bốn không bốn là không tìm thấy tài nguyên, lỗi phía client do sai đường dẫn. năm trăm là lỗi phía máy chủ khi xử lý yêu cầu.", "expected_score": 5 },
+        { "id": "partial", "transcript": "404 là không tìm thấy trang ạ, còn 500 em không rõ.", "expected_score": 2 },
+        { "id": "wrong", "transcript": "404 là lỗi phía máy chủ bị sập, còn 500 là do người dùng gõ sai đường dẫn.", "expected_score": 0 },
+        { "id": "offtopic", "transcript": "Tìm kiếm nhị phân có độ phức tạp O log n trên mảng đã sắp xếp.", "expected_score": 0 },
+        { "id": "short", "transcript": "Hai mã lỗi khác nhau ạ.", "expected_score": 0 }
+      ]
+    }
+  ]
+}

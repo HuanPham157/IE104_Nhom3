@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { signAudioPaths } from '@/lib/audio-urls';
-import { saveAssignmentDuration, saveGradingGuide } from '@/lib/assignment-settings';
+import { saveAssignmentDuration, saveGradingGuide, saveMaxAttempts, saveReferenceAnswerVisibility } from '@/lib/assignment-settings';
 import {
   apiJson,
   authenticateRole,
@@ -25,6 +25,8 @@ const assignmentContentSchema = z
     ends_at: z.string().datetime({ offset: true }).optional().nullable(),
     duration_minutes: z.number().int().min(1).max(600).optional().nullable(),
     grading_guide: z.string().max(20000).optional(),
+    show_reference_answer: z.boolean().optional(),
+    max_attempts: z.number().int().min(1).max(5).optional(),
     questions: z.array(z.object({
       content: z.string().trim().min(1).max(10000),
       reference_answer: z.string().trim().max(10000).optional().default(''),
@@ -123,7 +125,9 @@ async function attachOfficialResults(db: SupabaseClient, assignmentId: string, s
   if (!current?.attempt_id) return submission;
   const answerIds = (current.answers ?? []).map((answer) => answer.id);
   const [{ data: result, error: resultError }, { data: reviews, error: reviewError }] = await Promise.all([
-    db.from('student_assignment_results').select('total_score,graded_at').eq('assignment_id', assignmentId).maybeSingle(),
+    // Làm lại nhiều lần: điểm chính thức là lượt cao nhất (view trả mọi lượt đã công bố).
+    db.from('student_assignment_results').select('total_score,graded_at').eq('assignment_id', assignmentId)
+      .order('total_score', { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
     answerIds.length
       ? db.from('grade_reviews').select('submission_id,final_score,reviewer_feedback').in('submission_id', answerIds)
       : Promise.resolve({ data: [], error: null }),
@@ -219,6 +223,7 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   let mySubmission: unknown = null;
+  let retake: unknown = null;
   let aiWorkflowReady = true;
   if (auth.value.role === 'student') {
     const { data, error } = await auth.value.db.rpc('get_own_assignment_submission', { p_assignment_id: id });
@@ -233,6 +238,8 @@ export async function GET(request: Request, context: RouteContext) {
         .select('id,status')
         .eq('assignment_id', id)
         .eq('student_id', auth.value.user.id)
+        .order('started_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
       if (attemptError) {
         reportDatabaseError('Unable to load student assignment attempt fallback', attemptError);
@@ -262,19 +269,23 @@ export async function GET(request: Request, context: RouteContext) {
     } else {
       mySubmission = data;
     }
-    const { data: attemptTimer, error: timerError } = await auth.value.db
-      .from('assignment_submissions')
-      .select('deadline_at,started_at')
-      .eq('assignment_id', id)
-      .eq('student_id', auth.value.user.id)
-      .maybeSingle();
-    if (timerError) {
-      reportDatabaseError('Unable to load assignment exam timer', timerError);
-      return apiJson({ error: 'Không thể tải thời gian làm bài' }, 500);
+    const currentAttemptId = (mySubmission as { attempt_id?: string } | null)?.attempt_id;
+    if (currentAttemptId) {
+      const { data: attemptTimer, error: timerError } = await auth.value.db
+        .from('assignment_submissions')
+        .select('deadline_at,started_at')
+        .eq('id', currentAttemptId)
+        .maybeSingle();
+      if (timerError) {
+        reportDatabaseError('Unable to load assignment exam timer', timerError);
+        return apiJson({ error: 'Không thể tải thời gian làm bài' }, 500);
+      }
+      if (attemptTimer) mySubmission = { ...(mySubmission as Record<string, unknown>), ...attemptTimer };
     }
-    if (mySubmission && attemptTimer) {
-      mySubmission = { ...(mySubmission as Record<string, unknown>), ...attemptTimer };
-    }
+    // Làm lại cả bài (migration 009). Chưa chạy migration thì bỏ qua — bài vẫn làm được một lần như trước.
+    const { data: retakeStatus, error: retakeError } = await auth.value.db.rpc('get_retake_status', { p_assignment_id: id });
+    if (retakeError) reportDatabaseError('Unable to load retake status (migration 009?)', retakeError);
+    else retake = retakeStatus;
     mySubmission = await attachOwnVersions(auth.value.db, id, mySubmission);
     if (assignment.results_published_at) mySubmission = await attachOfficialResults(auth.value.db, id, mySubmission);
   }
@@ -291,11 +302,38 @@ export async function GET(request: Request, context: RouteContext) {
     gradingGuide = guide?.guide_text ?? null;
   }
 
+  let showReferenceAnswer: boolean | undefined;
+  if (auth.value.role !== 'student') {
+    const { data: visibility, error: visibilityError } = await auth.value.db
+      .from('assignments')
+      .select('show_reference_answer')
+      .eq('id', id)
+      .maybeSingle();
+    // Cột chỉ có sau migration 007; thiếu thì coi như đang ẩn đáp án.
+    if (visibilityError) reportDatabaseError('Unable to load reference answer visibility', visibilityError);
+    showReferenceAnswer = Boolean(visibility?.show_reference_answer);
+  }
+
+  let maxAttempts: number | undefined;
+  if (auth.value.role !== 'student') {
+    const { data: attemptsSetting, error: attemptsError } = await auth.value.db
+      .from('assignments')
+      .select('max_attempts')
+      .eq('id', id)
+      .maybeSingle();
+    // Cột chỉ có sau migration 009; thiếu thì coi như 1 lần làm.
+    if (attemptsError) reportDatabaseError('Unable to load attempt limit', attemptsError);
+    maxAttempts = Number(attemptsSetting?.max_attempts ?? 1);
+  }
+
   return apiJson({
     data: {
       ...assignment,
       grading_guide: gradingGuide,
+      show_reference_answer: showReferenceAnswer,
+      max_attempts: maxAttempts,
       my_submission: mySubmission,
+      retake,
       ai_workflow_ready: aiWorkflowReady,
       questions: questions.map((question) => ({
         ...question,
@@ -331,6 +369,15 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (error.message.includes('Assignment not found or forbidden')) {
       return apiJson({ error: 'Không tìm thấy bài tập hoặc bạn không có quyền sửa' }, 404);
     }
+    if (error.message.includes('cannot return to draft')) {
+      return apiJson({ error: 'Đã có sinh viên bắt đầu làm bài nên không thể sửa đề này. Hãy bấm “Tạo bài mới từ đề này” để sửa trên một bài tập mới; bài cũ và bài nộp giữ nguyên.' }, 409);
+    }
+    if (error.message.includes('Published results cannot be reverted')) {
+      return apiJson({ error: 'Bài tập đã công bố điểm nên không thể chuyển về bản nháp.' }, 409);
+    }
+    if (error.message.includes('Closed assignments cannot be reopened')) {
+      return apiJson({ error: 'Bài tập đã đóng nên không thể công bố lại.' }, 409);
+    }
     return apiJson({ error: 'Không thể cập nhật trạng thái bài tập' }, 400);
   }
   return apiJson({ data });
@@ -350,7 +397,13 @@ export async function PUT(request: Request, context: RouteContext) {
     return apiJson({ error: 'Thông tin bài tập không hợp lệ', details: parsed.error.flatten() }, 400);
   }
 
-  const { duration_minutes: durationMinutes, grading_guide: gradingGuide, ...assignmentContent } = parsed.data;
+  const {
+    duration_minutes: durationMinutes,
+    grading_guide: gradingGuide,
+    show_reference_answer: showReferenceAnswer,
+    max_attempts: maxAttempts,
+    ...assignmentContent
+  } = parsed.data;
   const { data, error } = await auth.value.db.rpc('update_draft_assignment_with_questions', {
     p_assignment_id: id,
     p_assignment: assignmentContent,
@@ -365,6 +418,8 @@ export async function PUT(request: Request, context: RouteContext) {
   const settingWarnings = [
     await saveAssignmentDuration(auth.value.db, id, durationMinutes),
     await saveGradingGuide(auth.value.db, id, gradingGuide),
+    await saveReferenceAnswerVisibility(auth.value.db, id, showReferenceAnswer),
+    await saveMaxAttempts(auth.value.db, id, maxAttempts),
   ].filter(Boolean);
   const warning = settingWarnings.length ? settingWarnings.join(' ') : undefined;
   return apiJson({ data, warning });

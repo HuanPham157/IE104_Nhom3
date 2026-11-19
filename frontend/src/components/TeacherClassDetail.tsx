@@ -37,9 +37,12 @@ interface AssignmentRecord {
 export default function TeacherClassDetail({
   classCode,
   classId,
+  initialTab = 'roster',
 }: {
   classCode?: string;
   classId?: string;
+  /** Tab mở sẵn (từ ?tab=… trên URL), để các nút "vào bài tập" mở thẳng danh sách bài tập. */
+  initialTab?: 'roster' | 'assignments' | 'stats';
 } = {}) {
   const router = useRouter();
   const [classRecord, setClassRecord] = useState<ClassRecord | null>(null);
@@ -49,7 +52,7 @@ export default function TeacherClassDetail({
   const [errorMessage, setErrorMessage] = useState('');
   const effectiveCode = classRecord?.class_code ?? classCode ?? classId ?? '';
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'roster' | 'assignments' | 'stats'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'assignments' | 'stats'>(initialTab);
   const [signingOut, setSigningOut] = useState(false);
   const [adminMode, setAdminMode] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -468,7 +471,16 @@ export default function TeacherClassDetail({
                 <article key={assignment.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-base font-bold text-gray-900">{assignment.title}</h3>
+                      <h3 className="text-base font-bold text-gray-900">
+                        <Link
+                          href={assignment.status === 'draft'
+                            ? `/teacher/assignments/create?classId=${classRecord?.id ?? ''}&assignmentId=${assignment.id}`
+                            : `/teacher/evaluations/${assignment.id}`}
+                          className="hover:underline"
+                        >
+                          {assignment.title}
+                        </Link>
+                      </h3>
                       <p className="mt-1 text-xs text-gray-500">
                         {assignment.ends_at ? `Hạn nộp: ${new Date(assignment.ends_at).toLocaleString('vi-VN')}` : 'Không đặt hạn nộp'}
                       </p>
@@ -491,6 +503,14 @@ export default function TeacherClassDetail({
                       className="mt-4 mr-2 inline-flex rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
                     >
                       Xem bài nộp &amp; chấm điểm
+                    </Link>
+                  )}
+                  {assignment.status !== 'draft' && (
+                    <Link
+                      href={`/teacher/assignments/create?classId=${classRecord?.id ?? ''}&assignmentId=${assignment.id}`}
+                      className="mt-4 mr-2 inline-flex rounded-full border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                      Xem / sửa đề
                     </Link>
                   )}
                   <button

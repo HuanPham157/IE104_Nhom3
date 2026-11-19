@@ -1,5 +1,5 @@
-"""Speech-to-text modules backed by Whisper."""
+"""Speech-to-text modules backed by Faster-Whisper."""
 
-from .transcription import transcribe_upload
+from .transcription import TranscriptionResult, transcribe_upload
 
-__all__ = ["transcribe_upload"]
+__all__ = ["TranscriptionResult", "transcribe_upload"]

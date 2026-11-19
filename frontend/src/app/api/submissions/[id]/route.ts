@@ -81,7 +81,7 @@ export async function GET(request: Request, context: RouteContext) {
 
   const { data: signedAudio, error: audioError } = await auth.value.db.storage
     .from('oral-answers')
-    .createSignedUrl(answer.audio_storage_path, 300);
+    .createSignedUrl(answer.audio_storage_path, 1800);
   if (audioError) {
     reportDatabaseError('Unable to create signed audio URL', audioError);
     return apiJson({ error: 'Không thể mở tệp ghi âm' }, 500);

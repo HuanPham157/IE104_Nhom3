@@ -5,6 +5,7 @@ import Link from 'next/link';
 import StudentPageShell from '@/components/StudentPageShell';
 import AnswerAnalysisPanel from '@/components/AnswerAnalysisPanel';
 import { oralcheckFetch } from '@/lib/oralcheck-client';
+import AudioPlayer from '@/components/AudioPlayer';
 import { assessmentLabel } from '@/lib/assessment';
 
 type Criterion = { criterion_id: string; awarded_points: number; assessment: string; evidence_excerpt: string | null; explanation: string | null };
@@ -32,6 +33,10 @@ type HistoryAttempt = {
   results_published: boolean;
   total_score: number | null;
   max_total: number;
+  /** Làm lại nhiều lần: lượt thứ mấy / tổng số lượt, và lượt được tính điểm chính thức. */
+  attempt_index?: number;
+  attempt_count?: number;
+  is_best?: boolean;
   assignment: { id: string; title: string; ends_at: string | null } | null;
   class: { id: string; class_name: string; class_code: string } | null;
   answers: HistoryAnswer[];
@@ -70,7 +75,7 @@ function AnswerDetail({ item }: { item: HistoryAnswer }) {
         <div className="mt-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Bản ghi âm</p>
           {answer.audio_url
-            ? <audio controls preload="none" src={answer.audio_url} className="mt-2 w-full" aria-label={`Phát lại câu trả lời câu ${question.position}`} />
+            ? <AudioPlayer key={answer.audio_url} src={answer.audio_url} preload="none" label={`Phát lại câu trả lời câu ${question.position}`} className="mt-2" />
             : <p className="mt-2 text-xs text-gray-500">Không mở được tệp ghi âm.</p>}
           <p className="mt-1 text-xs text-gray-500">Nộp lúc {formatDateTime(answer.submitted_at)}{answer.audio_duration_seconds ? ` · ${answer.audio_duration_seconds} giây` : ''}</p>
         </div>
@@ -201,7 +206,11 @@ export default function StudentHistory() {
                 <button type="button" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? null : attempt.id)} className="flex w-full flex-wrap items-start justify-between gap-3 p-5 text-left">
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500">{attempt.class ? `${attempt.class.class_name} · ${attempt.class.class_code}` : 'Lớp học'}</p>
-                    <h2 className="mt-1 font-semibold text-gray-900">{attempt.assignment?.title ?? 'Bài tập'}</h2>
+                    <h2 className="mt-1 font-semibold text-gray-900">
+                      {attempt.assignment?.title ?? 'Bài tập'}
+                      {(attempt.attempt_count ?? 1) > 1 && <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">Lần {attempt.attempt_index}/{attempt.attempt_count}</span>}
+                      {attempt.is_best && (attempt.attempt_count ?? 1) > 1 && <span className="ml-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">Điểm chính thức</span>}
+                    </h2>
                     <p className="mt-1 text-xs text-gray-500">Nộp: {formatDateTime(attempt.submitted_at)} · {answered}/{attempt.answers.length} câu đã trả lời</p>
                   </div>
                   <div className="flex flex-col items-end gap-2">

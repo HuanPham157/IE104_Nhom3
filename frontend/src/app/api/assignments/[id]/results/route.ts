@@ -35,6 +35,9 @@ export async function GET(request: Request, context: RouteContext) {
     .from('student_assignment_results')
     .select('id,status,total_score,submitted_at,graded_at')
     .eq('assignment_id', assignmentId)
+    // Làm lại nhiều lần (migration 009): kết quả chính thức là lượt cao nhất.
+    .order('total_score', { ascending: false, nullsFirst: false })
+    .limit(1)
     .maybeSingle();
 
   if (attemptError) {

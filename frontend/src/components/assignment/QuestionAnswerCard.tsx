@@ -2,6 +2,7 @@
 
 import AnswerAnalysisPanel from '@/components/AnswerAnalysisPanel';
 import type { AnswerVersion, AssignmentQuestion, QuestionProgress, VersionStatus } from '@/components/assignment/types';
+import AudioPlayer from '@/components/AudioPlayer';
 import { MAX_VERSIONS_PER_QUESTION, formatClock } from '@/components/assignment/types';
 
 const STATUS_LABEL: Record<VersionStatus, { text: string; className: string }> = {
@@ -109,7 +110,7 @@ export default function QuestionAnswerCard({
                   </span>
                 </div>
 
-                {version.audioUrl && <audio controls preload="metadata" src={version.audioUrl} className="mt-2 h-9 w-full" aria-label={`Nghe lại bản ${version.attemptNumber} câu ${question.position}`} />}
+                {version.audioUrl && <AudioPlayer key={version.audioUrl} src={version.audioUrl} label={`Nghe lại bản ${version.attemptNumber} câu ${question.position}`} className="mt-2" />}
                 {version.error && <p className="mt-2 text-xs text-red-700">{version.error}</p>}
                 {version.id && (version.status === 'uploaded' || version.status === 'failed' || version.status === 'transcribing') && (
                   <button type="button" disabled={locked} onClick={() => onTranscribe(version)} className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold disabled:opacity-40">

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { apiJson, authenticateRole, reportDatabaseError } from '@/lib/oralcheck-api';
 import { createServiceClient } from '@/services/supabase/server';
 import { runAiGrading } from '@/lib/ai-grading';
@@ -9,6 +10,26 @@ const requestSchema = z.object({
   is_edited: z.boolean().default(false),
 }).strict();
 type RouteContext = { params: Promise<{ id: string }> };
+
+/**
+ * Chỉ trả đáp án tham khảo khi lượt làm bài đã nộp và giảng viên cho phép (migration 007).
+ * Lỗi truy vấn (ví dụ chưa có cột) được coi là ẩn đáp án.
+ */
+async function visibleReferenceAnswer(db: SupabaseClient, attemptId: string, referenceAnswer: string) {
+  const { data: attempt, error: attemptError } = await db
+    .from('assignment_submissions')
+    .select('status,assignment_id')
+    .eq('id', attemptId)
+    .maybeSingle();
+  if (attemptError || !attempt || attempt.status === 'in_progress') return null;
+  const { data: assignment, error: assignmentError } = await db
+    .from('assignments')
+    .select('show_reference_answer')
+    .eq('id', attempt.assignment_id)
+    .maybeSingle();
+  if (assignmentError) reportDatabaseError('Unable to load reference answer visibility', assignmentError);
+  return assignment?.show_reference_answer && referenceAnswer.trim() ? referenceAnswer : null;
+}
 
 export async function POST(request: Request, context: RouteContext) {
   const auth = await authenticateRole(request, ['student']);
@@ -22,7 +43,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { data: answer, error: answerError } = await auth.value.db
     .from('submissions')
-    .select('id,student_id,status,is_final')
+    .select('id,student_id,status,is_final,assignment_submission_id')
     .eq('id', id).eq('student_id', auth.value.user.id).maybeSingle();
   if (answerError || !answer) {
     if (answerError) reportDatabaseError('Unable to load answer for grading', answerError);
@@ -53,7 +74,8 @@ export async function POST(request: Request, context: RouteContext) {
       transcript: parsed.data.transcript,
       isEdited: parsed.data.is_edited,
     });
-    return apiJson({ data: { ...outcome.saved, ...outcome, saved: undefined } });
+    const referenceAnswer = await visibleReferenceAnswer(auth.value.db, answer.assignment_submission_id, outcome.reference_answer);
+    return apiJson({ data: { ...outcome.saved, ...outcome, saved: undefined, reference_answer: referenceAnswer } });
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'AI grading failed';
     await auth.value.db.rpc('fail_submission_ai_processing', { p_submission_id: id, p_error_message: reason });

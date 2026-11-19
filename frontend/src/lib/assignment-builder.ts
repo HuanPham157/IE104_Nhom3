@@ -10,6 +10,8 @@ export interface QuestionDraft {
   referenceAnswer: string;
   maxScore: number;
   expanded: boolean;
+  /** Câu do barem tạo ra (bị bỏ khi barem không còn khối "Câu N" tương ứng). */
+  fromGuide?: boolean;
 }
 
 const roundTo = (value: number, step: number) => Math.round(value / step) * step;
@@ -151,4 +153,41 @@ export function buildChecklist(input: {
     { id: 'guide-stray', label: 'Barem không nhắc tới câu không tồn tại', ok: strayPositions.length === 0, level: 'warning', detail: strayPositions.length ? `Câu ${strayPositions.join(', ')} trong barem không có trong đề` : undefined },
     { id: 'guide-limit', label: 'Mỗi câu tối đa 30 tiêu chí', ok: guideStatus.every((item) => item.criteriaCount <= 30), level: 'error' },
   ];
+}
+
+// ---------- Tạo câu hỏi từ barem ----------
+
+/** Barem có chứa đề bài (ít nhất một "Câu N" có nội dung câu hỏi) thì barem quyết định danh sách câu hỏi. */
+export const guideDefinesQuestions = (guide: ParsedGuide) => guide.questions.some((block) => block.content);
+
+/**
+ * Tạo/cập nhật câu hỏi theo các khối "Câu N" có nội dung trong barem: câu N lấy nội dung, đáp án tham khảo và điểm
+ * (điểm ghi trên tiêu đề, nếu không có thì tổng tiêu chí). Câu thêm tay được giữ; câu do barem tạo mà
+ * barem đã bỏ thì bị xóa (nếu nằm sau) hoặc chuyển thành câu thường để giảng viên tự sửa (nếu nằm giữa).
+ */
+export function syncQuestionsFromGuide(
+  current: QuestionDraft[],
+  guide: ParsedGuide,
+  createQuestion: (patch?: Partial<QuestionDraft>) => QuestionDraft,
+  maxQuestions: number,
+): QuestionDraft[] {
+  const blocks = new Map(guide.questions.filter((block) => block.content).map((block) => [block.position, block]));
+  if (!blocks.size) return current;
+  const count = Math.min(maxQuestions, Math.max(...blocks.keys()));
+  const synced = Array.from({ length: count }, (_, index) => {
+    const existing = current[index] ?? createQuestion({ expanded: false });
+    const block = blocks.get(index + 1);
+    if (!block) return { ...existing, fromGuide: false };
+    const criteriaTotal = fix2(block.criteria.reduce((sum, criterion) => sum + criterion.points, 0));
+    return {
+      ...existing,
+      content: block.content,
+      referenceAnswer: block.referenceAnswer,
+      maxScore: block.points ?? (criteriaTotal || existing.maxScore),
+      fromGuide: true,
+    };
+  });
+  const manualTail = current.slice(count).filter((question) => !question.fromGuide && question.content.trim());
+  const next = [...synced, ...manualTail].slice(0, maxQuestions);
+  return next.some((question) => question.expanded) ? next : next.map((question, index) => ({ ...question, expanded: index === 0 }));
 }

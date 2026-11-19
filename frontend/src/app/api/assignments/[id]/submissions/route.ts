@@ -60,9 +60,24 @@ export async function GET(request: Request, context: RouteContext) {
     answersByAttempt.set(answer.assignment_submission_id, list);
   }
 
+  // Làm lại nhiều lần (migration 009): số thứ tự lượt theo thời điểm bắt đầu, và lượt được tính điểm chính thức
+  // (điểm đã duyệt cao nhất của mỗi sinh viên; bằng nhau thì lượt sớm hơn).
+  const attemptsByStudent = new Map<string, typeof attempts>();
+  for (const attempt of [...attempts].sort((a, b) => a.started_at.localeCompare(b.started_at))) {
+    attemptsByStudent.set(attempt.student_id, [...(attemptsByStudent.get(attempt.student_id) ?? []), attempt]);
+  }
+  const attemptMeta = new Map<string, { attempt_index: number; attempt_count: number; is_best: boolean }>();
+  for (const list of attemptsByStudent.values()) {
+    const best = list
+      .filter((attempt) => attempt.status === 'graded')
+      .reduce<(typeof list)[number] | null>((top, attempt) => (!top || Number(attempt.total_score) > Number(top.total_score) ? attempt : top), null);
+    list.forEach((attempt, index) => attemptMeta.set(attempt.id, { attempt_index: index + 1, attempt_count: list.length, is_best: attempt.id === best?.id }));
+  }
+
   return apiJson({
     data: attempts.map((attempt) => ({
       ...attempt,
+      ...attemptMeta.get(attempt.id),
       student_name: studentNameById.get(attempt.student_id) ?? null,
       answers: answersByAttempt.get(attempt.id) ?? [],
     })),

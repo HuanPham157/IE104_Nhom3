@@ -34,7 +34,13 @@ export async function POST(request: Request, context: RouteContext) {
   // Bản cũ (migration 002) trả về timestamptz; bản mới (006) trả về jsonb kèm lý do khi chưa công bố được.
   const result = (typeof data === 'object' && data !== null ? data : { published: true, results_published_at: data }) as {
     published: boolean; results_published_at?: string; auto_submitted?: number; ungraded?: number; in_progress?: number; notified?: number;
+    before_deadline?: boolean; ends_at?: string;
   };
+  // Migration 010: chỉ công bố sau hạn nộp (trước đó sinh viên còn làm / làm lại).
+  if (!result.published && result.before_deadline) {
+    const endsAt = result.ends_at ? new Date(result.ends_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'hạn nộp';
+    return apiJson({ error: `Chưa tới hạn nộp nên chưa công bố điểm được — sinh viên vẫn đang làm / làm lại. Có thể công bố sau ${endsAt}.`, data: result }, 409);
+  }
   if (!result.published) {
     const reasons = [
       result.ungraded ? `${result.ungraded} bài đã nộp chưa duyệt đủ điểm từng câu` : '',
