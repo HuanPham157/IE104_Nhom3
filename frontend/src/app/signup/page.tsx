@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Signup from '@/components/Signup';
+import Signup from '@/features/auth/components/Signup';
 
 export const metadata: Metadata = {
   title: 'Đăng ký tài khoản - AIOralCheck',

@@ -1,4 +1,4 @@
-import StudentClassDetail from '@/components/StudentClassDetail';
+import StudentClassDetail from '@/features/classes/components/StudentClassDetail';
 
 export const metadata = {
   title: 'Chi tiết Lớp học & Danh sách Bài tập | Cổng Học tập Sinh viên AIOralCheck',

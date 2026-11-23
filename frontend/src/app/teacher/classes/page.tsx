@@ -1,4 +1,4 @@
-import TeacherClasses from '@/components/TeacherClasses';
+import TeacherClasses from '@/features/classes/components/TeacherClasses';
 
 export const metadata = {
   title: 'Lớp học giảng viên - AIOralCheck',

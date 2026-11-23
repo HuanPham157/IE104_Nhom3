@@ -1,4 +1,4 @@
-import { supabase } from '@/services/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 
 export async function oralcheckFetch<T>(
   path: string,

@@ -1,4 +1,4 @@
-import DeferredFeatureNotice from '@/components/DeferredFeatureNotice';
+import DeferredFeatureNotice from '@/components/ui/DeferredFeatureNotice';
 
 export const metadata = {
   title: 'Kiểm tra thiết bị & Quy chế thi - AIOralCheck',

@@ -1,4 +1,4 @@
-import LandingPage from '@/components/LandingPage';
+import LandingPage from '@/features/landing/components/LandingPage';
 
 export const metadata = {
   title: 'AIOralCheck Studio - Nền tảng Khảo thí Vấn đáp Âm học AI',

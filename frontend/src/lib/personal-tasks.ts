@@ -1,49 +1,8 @@
-import { z } from 'zod';
+import type { PersonalTask, TaskPriority } from '@shared/personal-tasks';
 
-/** Việc cá nhân của sinh viên (bảng public.tasks, cột mở rộng ở migration 008). */
-export type TaskPriority = 'low' | 'normal' | 'high';
-export interface PersonalTask {
-  id: string;
-  title: string;
-  is_done: boolean;
-  created_at: string;
-  notes: string | null;
-  due_date: string | null; // YYYY-MM-DD
-  priority: TaskPriority;
-  completed_at: string | null;
-}
-
-export const TASK_FIELDS = 'id,title,is_done,created_at,notes,due_date,priority,completed_at';
-// Cột của migration 000 — dùng khi máy chủ chưa chạy migration 008.
-export const LEGACY_TASK_FIELDS = 'id,title,is_done,created_at';
-export const MISSING_COLUMN = '42703';
-
-export const TASK_TITLE_MAX = 120;
-export const TASK_NOTES_MAX = 1000;
-
-const dueDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => !Number.isNaN(Date.parse(value)));
-const taskFields = {
-  title: z.string().trim().min(1).max(TASK_TITLE_MAX),
-  // Chuỗi rỗng = xóa ghi chú (null); không gửi = giữ nguyên.
-  notes: z.string().trim().max(TASK_NOTES_MAX).nullable().optional().transform((value) => (value === undefined ? undefined : value || null)),
-  due_date: dueDate.nullable().optional(),
-  priority: z.enum(['low', 'normal', 'high']).optional(),
-};
-
-export const createTaskSchema = z.object(taskFields).strict();
-export const updateTaskSchema = z
-  .object({ ...taskFields, title: taskFields.title.optional(), is_done: z.boolean().optional() })
-  .strict()
-  .refine((data) => Object.values(data).some((value) => value !== undefined), 'Cần ít nhất một trường để cập nhật');
-
-/** Bỏ các trường chưa gửi để không ghi đè null lên dữ liệu cũ. */
-export const definedOnly = <T extends Record<string, unknown>>(data: T) =>
-  Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)) as Partial<T>;
-
-/** Chuẩn hóa dòng cũ (thiếu cột của migration 008) về cùng kiểu. */
-export const withTaskDefaults = (row: Partial<PersonalTask> & Pick<PersonalTask, 'id' | 'title' | 'is_done' | 'created_at'>): PersonalTask => ({
-  notes: null, due_date: null, priority: 'normal', completed_at: null, ...row,
-});
+/** Việc cá nhân của sinh viên: kiểu dữ liệu và giới hạn dùng chung ở shared/personal-tasks.ts; file này chỉ chứa phần hiển thị. */
+export type { PersonalTask, TaskPriority } from '@shared/personal-tasks';
+export { TASK_NOTES_MAX, TASK_TITLE_MAX } from '@shared/personal-tasks';
 
 // ---------- Hiển thị (dùng ở client) ----------
 

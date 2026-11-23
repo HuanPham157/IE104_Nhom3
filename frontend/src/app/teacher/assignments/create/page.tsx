@@ -1,4 +1,4 @@
-import TeacherQuestionBuilder from '@/components/TeacherQuestionBuilder';
+import TeacherQuestionBuilder from '@/features/assignments/components/TeacherQuestionBuilder';
 
 export const metadata = {
   title: 'Soạn bài tập | AIOralCheck Studio',

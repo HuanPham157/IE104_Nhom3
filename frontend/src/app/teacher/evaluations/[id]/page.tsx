@@ -1,4 +1,4 @@
-import TeacherAssignmentSubmissions from '@/components/TeacherAssignmentSubmissions';
+import TeacherAssignmentSubmissions from '@/features/grading/components/TeacherAssignmentSubmissions';
 
 export const metadata = { title: 'Bài nộp sinh viên - AIOralCheck' };
 

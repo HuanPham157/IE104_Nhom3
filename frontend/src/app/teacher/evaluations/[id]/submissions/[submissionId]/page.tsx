@@ -1,4 +1,4 @@
-import TeacherSubmissionReview from '@/components/TeacherSubmissionReview';
+import TeacherSubmissionReview from '@/features/grading/components/TeacherSubmissionReview';
 
 export const metadata = { title: 'Duyệt bài làm - AIOralCheck' };
 

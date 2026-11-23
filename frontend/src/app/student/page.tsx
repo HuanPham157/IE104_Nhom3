@@ -1,4 +1,4 @@
-import StudentDashboard from '@/components/StudentDashboard';
+import StudentDashboard from '@/features/dashboard/components/StudentDashboard';
 
 export const metadata = {
   title: 'Tổng quan sinh viên - AIOralCheck',

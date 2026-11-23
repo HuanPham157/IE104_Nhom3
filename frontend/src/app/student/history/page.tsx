@@ -1,4 +1,4 @@
-import StudentHistory from '@/components/StudentHistory';
+import StudentHistory from '@/features/exam/components/StudentHistory';
 
 export const metadata = { title: 'Lịch sử bài nộp - AIOralCheck' };
 

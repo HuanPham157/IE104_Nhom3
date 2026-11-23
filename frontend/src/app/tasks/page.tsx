@@ -1,4 +1,4 @@
-import TaskDashboard from '@/components/TaskDashboard';
+import TaskDashboard from '@/features/tasks/components/TaskDashboard';
 
 export const metadata = {
   title: 'Việc học của tôi - AIOralCheck',

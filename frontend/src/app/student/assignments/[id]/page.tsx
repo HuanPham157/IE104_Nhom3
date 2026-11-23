@@ -1,4 +1,4 @@
-import StudentAssignmentDetail from '@/components/StudentAssignmentDetail';
+import StudentAssignmentDetail from '@/features/exam/components/StudentAssignmentDetail';
 
 export const metadata = {
   title: 'Chi tiết bài tập | Cổng Học tập',

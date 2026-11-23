@@ -1,12 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 import { loadEnvConfig } from '@next/env';
-import { resolve } from 'node:path';
 
 const frontendDirectory = __dirname;
-loadEnvConfig(resolve(frontendDirectory, '..'));
+// Biến TEST_* và Supabase lấy từ frontend/.env.local (cùng file web dùng).
+loadEnvConfig(frontendDirectory);
 
 export default defineConfig({
-  testDir: '../tests',
+  testDir: './tests',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

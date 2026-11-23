@@ -1,4 +1,4 @@
-import DeferredFeatureNotice from '@/components/DeferredFeatureNotice';
+import DeferredFeatureNotice from '@/components/ui/DeferredFeatureNotice';
 
 export const metadata = {
   title: 'Phòng thi Vấn đáp Trực tiếp - AIOralCheck',

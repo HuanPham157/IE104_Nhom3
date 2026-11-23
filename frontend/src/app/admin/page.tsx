@@ -1,4 +1,4 @@
-import AdminDashboard from '@/components/AdminDashboard';
+import AdminDashboard from '@/features/admin/components/AdminDashboard';
 
 export const metadata = {
   title: 'Bảng Điều hành Quản trị viên | AIOralCheck',

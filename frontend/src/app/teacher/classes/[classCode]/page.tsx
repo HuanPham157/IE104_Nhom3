@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import TeacherClassDetail from '@/components/TeacherClassDetail';
+import TeacherClassDetail from '@/features/classes/components/TeacherClassDetail';
 
 export const metadata: Metadata = {
   title: 'Chi tiết lớp học - AIOralCheck',

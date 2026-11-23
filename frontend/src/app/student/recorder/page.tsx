@@ -1,4 +1,4 @@
-import StudentRecorder from '@/components/StudentRecorder';
+import StudentRecorder from '@/features/exam/components/StudentRecorder';
 
 export const metadata = {
   title: 'Thử micro - AIOralCheck',

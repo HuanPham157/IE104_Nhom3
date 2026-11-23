@@ -1,30 +1,172 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ==========================================================================
+   AI OralCheck — Design tokens
+   Chủ đạo: "Ink Indigo" (xanh mực sâu) + điểm nhấn Indigo/Violet + Emerald.
+   Thang xám được nhuộm nhẹ sắc indigo để toàn bộ giao diện đồng nhất,
+   nên các class sẵn có như bg-gray-50, text-gray-600, bg-black… tự đổi theo.
+   ========================================================================== */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  /* Neutral — slate nhuộm indigo */
+  --color-gray-50: #f7f7fb;
+  --color-gray-100: #efeff6;
+  --color-gray-200: #e4e4ef;
+  --color-gray-300: #d0d1e1;
+  --color-gray-400: #9b9db6;
+  --color-gray-500: #6b6d88;
+  --color-gray-600: #4f516b;
+  --color-gray-700: #3b3d57;
+  --color-gray-800: #25273f;
+  --color-gray-900: #15172f;
+  --color-gray-950: #0c0d22;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* "Đen" của hệ thống là xanh mực — nút chính, tiêu đề đậm */
+  --color-black: #12112b;
+
+  /* Thương hiệu */
+  --color-brand-50: #f1f0ff;
+  --color-brand-100: #e3dfff;
+  --color-brand-200: #c9c3ff;
+  --color-brand-300: #a69cff;
+  --color-brand-400: #8676ff;
+  --color-brand-500: #6a55f7;
+  --color-brand-600: #5640e6;
+  --color-brand-700: #4530c4;
+  --color-brand-800: #2a14b4;
+  --color-brand-900: #1e1b4b;
+  --color-ink: #12112b;
+  --color-ink-2: #1b1846;
+  --color-surface: #f6f6fb;
+
+  /* Bo góc mềm hơn một chút */
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.5rem;
+
+  /* Đổ bóng nhuộm mực, mềm và sâu */
+  --shadow-2xs: 0 1px 1px rgb(18 17 43 / 0.04);
+  --shadow-xs: 0 1px 2px rgb(18 17 43 / 0.05);
+  --shadow-sm: 0 1px 2px rgb(18 17 43 / 0.04), 0 2px 6px -1px rgb(18 17 43 / 0.06);
+  --shadow-md: 0 2px 4px -1px rgb(18 17 43 / 0.05), 0 8px 20px -4px rgb(18 17 43 / 0.09);
+  --shadow-lg: 0 4px 8px -2px rgb(18 17 43 / 0.05), 0 18px 36px -8px rgb(18 17 43 / 0.14);
+  --shadow-xl: 0 8px 16px -4px rgb(18 17 43 / 0.06), 0 28px 56px -12px rgb(18 17 43 / 0.2);
+
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-wave: wave 1.3s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes wave {
+    0%, 100% { transform: scaleY(0.45); }
+    50% { transform: scaleY(1); }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-heading), var(--font-body), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-code), ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Tailwind v4 mặc định viền = currentColor; đưa về màu trung tính mềm */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
+
+:root {
+  --background: var(--color-surface);
+  --foreground: var(--color-gray-900);
+  color-scheme: light;
 }
 
 html {
   scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(1200px 520px at 100% -10%, rgb(106 85 247 / 0.07), transparent 60%),
+    radial-gradient(900px 480px at -10% 0%, rgb(16 185 129 / 0.045), transparent 55%);
+  background-attachment: fixed;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+::selection {
+  background: rgb(106 85 247 / 0.22);
+  color: inherit;
+}
+
+/* Tailwind v4 bỏ cursor pointer mặc định cho button */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+select:not(:disabled),
+summary,
+label[for] {
+  cursor: pointer;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+  accent-color: var(--color-brand-600);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-gray-400);
+}
+
+/* Thanh cuộn mảnh */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) transparent;
+}
+
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: var(--color-gray-400); }
+
+/* Chừa chỗ cho thanh điều hướng dưới cùng trên điện thoại */
+@media (max-width: 767px) {
+  body:has(.oc-mobile-nav) {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
