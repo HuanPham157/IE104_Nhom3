@@ -1,0 +1,72 @@
+{
+  "reference_text": "Hôm nay chúng ta sẽ tìm hiểu về trí tuệ nhân tạo và ứng dụng trong giáo dục.",
+  "audio_directory_from_repo_root": "cheating-api",
+  "rubric": {
+    "question_max_score": 10,
+    "criteria": [
+      {"id": "5311afb5-85c4-44a2-acde-5c095f82dfaf", "text": "Độ chính xác nội dung", "max_points": 3, "scoring_method": "wer_accuracy"},
+      {"id": "b8624984-755e-450c-b83e-3dcd9a8601a4", "text": "Phát âm", "max_points": 4, "scoring_method": "azure_accuracy"},
+      {"id": "4f16889a-de4f-423a-9417-d1ab66482644", "text": "Độ trôi chảy", "max_points": 2, "scoring_method": "azure_fluency"},
+      {"id": "8af5b41c-0e9c-4ce6-811c-089e539c508d", "text": "Hoàn thành bài đọc", "max_points": 1, "scoring_method": "completion_rate"}
+    ]
+  },
+  "samples": [
+    {
+      "file": "bai-doc.m4a",
+      "scenario": "Đọc đủ câu",
+      "confirmed_excerpts": [],
+      "candidate_transcript": "Hôm nay chúng ta sẽ tìm hiểu về trí tuệ nhân tạo và ứng dụng trong giáo dục.",
+      "full_transcript_verified": true,
+      "observed_asr_transcript": "Hôm nay chúng ta sẽ tìm hiểu về trí tuệ nhân tạo và ứng dụng trong giáo dục.",
+      "region": null,
+      "teacher_pronunciation_4": null,
+      "teacher_fluency_2": null,
+      "request_id": "81795f39-8359-4584-a99a-761152a966bd",
+      "azure_scores_100": {
+        "azure_accuracy": 92,
+        "azure_fluency": 99
+      },
+      "total_score_10": 9.66
+    },
+    {
+      "file": "bai-doc-thieu.m4a",
+      "scenario": "Bỏ tiếng sẽ",
+      "confirmed_excerpts": [
+        "nhân tạp",
+        "ứng dục"
+      ],
+      "candidate_transcript": "Hôm nay chúng ta tìm hiểu về trí tuệ nhân tạp và ứng dục trong giáo dục.",
+      "full_transcript_verified": true,
+      "observed_asr_transcript": "Hôm nay chúng ta tìm hiểu về trí tuệ, nhân tạp và ứng dục trong giáo dục.",
+      "region": null,
+      "teacher_pronunciation_4": null,
+      "teacher_fluency_2": null,
+      "request_id": "b0447758-f909-4ae5-96c9-2917fafa5eac",
+      "azure_scores_100": {
+        "azure_accuracy": 82,
+        "azure_fluency": 89
+      },
+      "total_score_10": 8.5
+    },
+    {
+      "file": "bai-doc-them.m4a",
+      "scenario": "Lặp tiếng nay",
+      "confirmed_excerpts": [
+        "Hôm nay nay chúng ta",
+        "trí tuệ nhân tạo"
+      ],
+      "candidate_transcript": "Hôm nay nay chúng ta sẽ tìm hiểu về trí tuệ nhân tạo và ứng dụng trong giáo dục.",
+      "full_transcript_verified": true,
+      "observed_asr_transcript": "Hôm nay chúng ta sẽ tìm hiểu về chỉ tuệ niên tạc và ứng dụng trong giáo dục.",
+      "region": null,
+      "teacher_pronunciation_4": null,
+      "teacher_fluency_2": null,
+      "request_id": "01669537-b808-461d-b2c0-1cdb2c7ffde1",
+      "azure_scores_100": {
+        "azure_accuracy": 82,
+        "azure_fluency": 83
+      },
+      "total_score_10": 8.44
+    }
+  ]
+}
