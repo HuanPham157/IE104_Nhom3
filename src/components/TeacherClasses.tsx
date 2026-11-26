@@ -115,6 +115,7 @@ export default function TeacherClasses() {
   const [classLabInput, setClassLabInput] = useState('');
   const [classScheduleInput, setClassScheduleInput] = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
+  const [createError, setCreateError] = useState('');
   const [creatingClass, setCreatingClass] = useState(false);
   const creatingClassRef = useRef(false);
 
@@ -195,6 +196,7 @@ export default function TeacherClasses() {
     creatingClassRef.current = true;
     setCreatingClass(true);
     setErrorMessage('');
+    setCreateError('');
     setCreateSuccess('');
     try {
       const description = [
@@ -228,8 +230,11 @@ export default function TeacherClasses() {
       setShowCreateModal(false);
       setClassNameInput('');
       setClassCodeInput('');
+      setClassFacultyInput('');
+      setClassLabInput('');
+      setClassScheduleInput('');
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Không thể gửi yêu cầu tạo lớp.');
+      setCreateError(error instanceof Error ? error.message : 'Không thể gửi yêu cầu tạo lớp.');
     } finally {
       creatingClassRef.current = false;
       setCreatingClass(false);
@@ -262,7 +267,11 @@ export default function TeacherClasses() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                setCreateError('');
+                setCreateSuccess('');
+                setShowCreateModal(true);
+              }}
               className="inline-flex items-center gap-1.5 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-gray-800"
             >
               <Icon name="add" className="h-3.5 w-3.5" />
@@ -408,7 +417,10 @@ export default function TeacherClasses() {
               <button
                 type="button"
                 disabled={creatingClass}
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setCreateError('');
+                  setShowCreateModal(false);
+                }}
                 className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 ✕
@@ -495,8 +507,14 @@ export default function TeacherClasses() {
                   : 'Lớp sẽ chờ quản trị viên phê duyệt trước khi sinh viên có thể tham gia.'}
               </div>
 
+              {createError && (
+                <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">
+                  {createError}
+                </div>
+              )}
+
               {createSuccess && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+                <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
                   ✓ {createSuccess}
                 </div>
               )}
@@ -505,7 +523,10 @@ export default function TeacherClasses() {
                 <button
                   type="button"
                   disabled={creatingClass}
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setCreateError('');
+                    setShowCreateModal(false);
+                  }}
                   className="rounded-full border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Hủy bỏ

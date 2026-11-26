@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import StudentSidebar from '@/components/StudentSidebar';
@@ -76,6 +76,8 @@ export default function StudentClasses() {
   const [classCodeInput, setClassCodeInput] = useState('');
   const [joinError, setJoinError] = useState('');
   const [joinSuccess, setJoinSuccess] = useState('');
+  const [joiningClass, setJoiningClass] = useState(false);
+  const joiningClassRef = useRef(false);
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -126,6 +128,7 @@ export default function StudentClasses() {
 
   async function handleJoinClass(e: React.FormEvent) {
     e.preventDefault();
+    if (joiningClassRef.current) return;
     setJoinError('');
     setJoinSuccess('');
     const code = classCodeInput.trim().toUpperCase();
@@ -134,6 +137,8 @@ export default function StudentClasses() {
       return;
     }
 
+    joiningClassRef.current = true;
+    setJoiningClass(true);
     try {
       await oralcheckFetch('/api/classes/join', {
         method: 'POST',
@@ -151,6 +156,9 @@ export default function StudentClasses() {
       setClasses(refreshedClasses);
     } catch (error) {
       setJoinError(error instanceof Error ? error.message : 'Không thể tham gia lớp học.');
+    } finally {
+      joiningClassRef.current = false;
+      setJoiningClass(false);
     }
   }
 
@@ -194,7 +202,11 @@ export default function StudentClasses() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowJoinModal(true)}
+              onClick={() => {
+                setJoinError('');
+                setJoinSuccess('');
+                setShowJoinModal(true);
+              }}
               className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-gray-800"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -367,23 +379,19 @@ export default function StudentClasses() {
               );
             })}
             {!loading && filteredClasses.length === 0 && (
-              <p className="col-span-full rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
-                Bạn chưa tham gia lớp học nào. Nhập mã do giảng viên cung cấp để tham gia.
-              </p>
+              <div className="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+                <svg className="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <h3 className="mt-3 text-base font-semibold text-gray-900">
+                  {classes.length === 0 ? 'Bạn chưa tham gia lớp học nào' : 'Không tìm thấy lớp học phù hợp'}
+                </h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Thử kiểm tra lại từ khóa tìm kiếm hoặc bấm &quot;Tham gia lớp bằng mã&quot; để nhập mã lớp do giảng viên cung cấp.
+                </p>
+              </div>
             )}
           </div>
-
-          {filteredClasses.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <h3 className="mt-4 text-base font-semibold text-gray-900">Không tìm thấy lớp học</h3>
-              <p className="mt-1 text-xs text-gray-500">
-                Thử kiểm tra lại từ khóa tìm kiếm hoặc tham gia lớp học mới bằng mã code do giảng viên cung cấp.
-              </p>
-            </div>
-          )}
         </main>
       </div>
 
@@ -401,18 +409,20 @@ export default function StudentClasses() {
                 <h3 className="text-base font-bold text-gray-900">Tham gia lớp học mới</h3>
               </div>
               <button
+                type="button"
+                disabled={joiningClass}
                 onClick={() => {
                   setShowJoinModal(false);
                   setJoinError('');
                   setJoinSuccess('');
                 }}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleJoinClass} className="mt-4 space-y-4">
+            <form onSubmit={handleJoinClass} aria-busy={joiningClass} className="mt-4 space-y-4">
               <p className="text-xs text-gray-600">
                 Nhập mã lớp học gồm 6–10 ký tự chữ hoặc số (ví dụ: <code className="rounded bg-gray-100 px-1 py-0.5 font-bold text-black">AIO8892</code>) do giảng viên bộ môn cung cấp:
               </p>
@@ -436,13 +446,13 @@ export default function StudentClasses() {
               </div>
 
               {joinError && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700">
+                <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700">
                   {joinError}
                 </div>
               )}
 
               {joinSuccess && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-semibold text-emerald-800">
+                <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-semibold text-emerald-800">
                   ✓ {joinSuccess}
                 </div>
               )}
@@ -450,16 +460,22 @@ export default function StudentClasses() {
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowJoinModal(false)}
-                  className="rounded-full border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  disabled={joiningClass}
+                  onClick={() => {
+                    setShowJoinModal(false);
+                    setJoinError('');
+                    setJoinSuccess('');
+                  }}
+                  className="rounded-full border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="rounded-full bg-black px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-gray-800"
+                  disabled={joiningClass}
+                  className="rounded-full bg-black px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-500"
                 >
-                  Xác nhận tham gia
+                  {joiningClass ? 'Đang tham gia...' : 'Xác nhận tham gia'}
                 </button>
               </div>
             </form>

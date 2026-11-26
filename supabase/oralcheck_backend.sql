@@ -233,6 +233,29 @@ begin
     raise exception 'Invalid class data';
   end if;
 
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtext('create_class:' || (select auth.uid())::text)
+  );
+
+  if exists (
+    select 1
+    from public.classes c
+    where c.lecturer_id = (select auth.uid())
+      and lower(btrim(c.class_name)) = lower(btrim(p_class_name))
+      and c.status in ('pending', 'active')
+  ) then
+    raise exception 'Duplicate class name';
+  end if;
+
+  if v_role = 'lecturer' and (
+    select count(*)
+    from public.classes c
+    where c.lecturer_id = (select auth.uid())
+      and c.status = 'pending'
+  ) >= 3 then
+    raise exception 'Maximum pending classes reached';
+  end if;
+
   insert into public.classes (
     lecturer_id, class_name, description, class_code, status, approved_at, approved_by
   )
@@ -547,18 +570,23 @@ set search_path = ''
 as $$
 declare
   v_class_id uuid;
+  v_class_status text;
+  v_existing_status text;
 begin
   if public.current_app_role() is distinct from 'student' then
     raise exception 'Student role required';
   end if;
 
-  select id into v_class_id
+  select id, status into v_class_id, v_class_status
   from public.classes
-  where class_code = upper(btrim(p_class_code))
-    and status = 'active';
+  where class_code = upper(btrim(p_class_code));
 
   if v_class_id is null then
     raise exception 'Active class code not found';
+  end if;
+
+  if v_class_status <> 'active' then
+    raise exception 'Class is not active';
   end if;
 
   insert into public.class_members as existing_member (
@@ -1531,6 +1559,10 @@ create policy "notifications visible to owner" on public.notifications
 
 create unique index if not exists uq_grade_reviews_submission_id
   on public.grade_reviews (submission_id);
+
+create unique index if not exists uq_classes_lecturer_active_name
+  on public.classes (lecturer_id, lower(btrim(class_name)))
+  where status in ('pending', 'active');
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (

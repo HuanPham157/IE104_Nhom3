@@ -8,9 +8,11 @@ import {
   reportDatabaseError,
 } from '@/lib/oralcheck-api';
 
+const MAX_PENDING_CLASSES_PER_LECTURER = 3;
+
 const createClassSchema = z
   .object({
-    class_name: z.string().trim().min(1).max(160),
+    class_name: z.string().trim().min(1, 'Tên lớp học không được để trống').max(160, 'Tên lớp học tối đa 160 ký tự'),
     description: z.string().trim().max(2000).optional().nullable(),
   })
   .strict();
@@ -133,6 +135,47 @@ export async function POST(request: Request) {
     return apiJson({ error: 'Thông tin lớp học không hợp lệ', details: parsed.error.flatten() }, 400);
   }
 
+  // R2 & R3 server-side business rules before inserting:
+  // R2: Reject duplicate class name (pending/active) for the same lecturer.
+  // R3: Reject lecturer exceeding max pending class requests at once.
+  const { data: ownedClasses, error: ownedClassesError } = await auth.value.db
+    .from('classes')
+    .select('id, class_name, status')
+    .eq('lecturer_id', auth.value.user.id)
+    .in('status', ['pending', 'active']);
+
+  if (ownedClassesError) {
+    reportDatabaseError('Unable to check existing lecturer classes', ownedClassesError);
+    return apiJson({ error: 'Không thể kiểm tra danh sách lớp hiện có' }, 500);
+  }
+
+  const normalizedClassName = parsed.data.class_name.trim().toLocaleLowerCase();
+  const hasDuplicateClassName = (ownedClasses ?? []).some(
+    (item) => item.class_name.trim().toLocaleLowerCase() === normalizedClassName,
+  );
+  if (hasDuplicateClassName) {
+    return apiJson(
+      {
+        error: 'Bạn đã có lớp học với tên này đang hoạt động hoặc chờ duyệt.',
+        code: 'DUPLICATE_CLASS_NAME',
+      },
+      409,
+    );
+  }
+
+  if (auth.value.role === 'lecturer') {
+    const pendingCount = (ownedClasses ?? []).filter((item) => item.status === 'pending').length;
+    if (pendingCount >= MAX_PENDING_CLASSES_PER_LECTURER) {
+      return apiJson(
+        {
+          error: `Bạn chỉ có thể có tối đa ${MAX_PENDING_CLASSES_PER_LECTURER} lớp đang chờ quản trị viên phê duyệt cùng lúc.`,
+          code: 'MAX_PENDING_CLASSES_EXCEEDED',
+        },
+        409,
+      );
+    }
+  }
+
   const classCode = randomBytes(5).toString('hex').toUpperCase();
   const { data, error } = await auth.value.db.rpc('create_class_request', {
     p_class_name: parsed.data.class_name,
@@ -142,8 +185,26 @@ export async function POST(request: Request) {
 
   if (error) {
     reportDatabaseError('Unable to create class approval request', error);
+    if (error.message.includes('Duplicate class name') || error.message.includes('uq_classes_lecturer_active_name')) {
+      return apiJson(
+        {
+          error: 'Bạn đã có lớp học với tên này đang hoạt động hoặc chờ duyệt.',
+          code: 'DUPLICATE_CLASS_NAME',
+        },
+        409,
+      );
+    }
+    if (error.message.includes('Maximum pending classes reached')) {
+      return apiJson(
+        {
+          error: `Bạn chỉ có thể có tối đa ${MAX_PENDING_CLASSES_PER_LECTURER} lớp đang chờ quản trị viên phê duyệt cùng lúc.`,
+          code: 'MAX_PENDING_CLASSES_EXCEEDED',
+        },
+        409,
+      );
+    }
     if (error.code === '23505') {
-      return apiJson({ error: 'Mã lớp bị trùng, vui lòng thử lại' }, 409);
+      return apiJson({ error: 'Mã lớp bị trùng, vui lòng thử lại', code: 'DUPLICATE_CLASS_CODE' }, 409);
     }
     return apiJson({ error: 'Không thể tạo yêu cầu mở lớp' }, 500);
   }
