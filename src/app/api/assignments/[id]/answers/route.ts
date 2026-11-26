@@ -1,21 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
 import {
   apiJson,
   authenticateRole,
   reportDatabaseError,
 } from '@/lib/oralcheck-api';
-
-const idSchema = z.string().uuid();
-const durationSchema = z.coerce.number().int().positive().max(7200);
-const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
-const AUDIO_TYPES: Record<string, string> = {
-  'audio/webm': 'webm',
-  'audio/wav': 'wav',
-  'audio/mpeg': 'mp3',
-  'audio/mp4': 'm4a',
-  'audio/ogg': 'ogg',
-};
+import {
+  durationSchema,
+  uuidIdSchema as idSchema,
+  validateAudioMetadata,
+} from '@/lib/oralcheck-validators';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -40,10 +33,11 @@ export async function POST(request: Request, context: RouteContext) {
   if (!questionId.success || !(audio instanceof File)) {
     return apiJson({ error: 'Cần cung cấp câu hỏi và tệp ghi âm' }, 400);
   }
-  const mimeType = audio.type.split(';', 1)[0].trim().toLowerCase();
-  if (!(mimeType in AUDIO_TYPES) || audio.size === 0 || audio.size > MAX_AUDIO_BYTES) {
-    return apiJson({ error: 'Tệp phải là âm thanh được hỗ trợ và không vượt quá 25 MB' }, 400);
+  const audioCheck = validateAudioMetadata(audio.type, audio.size);
+  if (!audioCheck.ok) {
+    return apiJson({ error: audioCheck.error }, 400);
   }
+  const { mimeType, extension } = audioCheck;
 
   const rawDuration = form.get('duration_seconds');
   let durationSeconds: number | null = null;
@@ -64,7 +58,7 @@ export async function POST(request: Request, context: RouteContext) {
     return apiJson({ error: 'Bài tập chưa mở, đã đóng hoặc bạn không thuộc lớp này' }, 403);
   }
 
-  const storagePath = `${auth.value.user.id}/${assignmentId}/${questionId.data}/${randomUUID()}.${AUDIO_TYPES[mimeType]}`;
+  const storagePath = `${auth.value.user.id}/${assignmentId}/${questionId.data}/${randomUUID()}.${extension}`;
   const { error: uploadError } = await auth.value.db.storage
     .from('oral-answers')
     .upload(storagePath, audio, { contentType: mimeType, upsert: false });

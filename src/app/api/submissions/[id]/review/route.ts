@@ -1,23 +1,13 @@
-import { z } from 'zod';
 import {
   apiJson,
   authenticateRole,
   readJson,
   reportDatabaseError,
 } from '@/lib/oralcheck-api';
-
-const idSchema = z.string().uuid();
-const reviewSchema = z
-  .object({
-    final_score: z.number().min(0).max(999.99),
-    reviewer_feedback: z.string().trim().max(5000).optional().nullable(),
-    score_modified: z.boolean().optional().default(false),
-  })
-  .strict()
-  .refine(
-    (value) => !value.score_modified || Boolean(value.reviewer_feedback),
-    'Cần nhập nhận xét khi điều chỉnh điểm',
-  );
+import {
+  reviewSubmissionSchema as reviewSchema,
+  uuidIdSchema as idSchema,
+} from '@/lib/oralcheck-validators';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

@@ -1,0 +1,52 @@
+================================================================
+KẾT QUẢ CHẠY TOÀN BỘ BỘ KIỂM THỬ (`npm test`)
+Thời điểm thực thi: 26/11/2026 08:57:45 – 08:58:03 (+07:00)
+Lệnh chạy: npm test (npm run test:unit && npm run test:integration && npm run test:e2e)
+================================================================
+
+> viec-hoc@0.1.0 test
+> npm run test:unit && npm run test:integration && npm run test:e2e
+
+
+> viec-hoc@0.1.0 test:unit
+> vitest run tests/unit
+
+
+ RUN  v3.2.7 D:/HocTap/Nam 3/HK1/IE104/viec-hoc
+
+ ✓ tests/unit/oralcheck-validators.test.ts (7 tests) 10ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  08:57:45
+   Duration  857ms (transform 53ms, setup 0ms, collect 239ms, tests 10ms, environment 0ms, prepare 188ms)
+
+
+> viec-hoc@0.1.0 test:integration
+> vitest run tests/integration
+
+
+ RUN  v3.2.7 D:/HocTap/Nam 3/HK1/IE104/viec-hoc
+
+ ✓ tests/integration/class-and-review-api.test.ts (5 tests) 25ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  08:57:47
+   Duration  962ms (transform 113ms, setup 0ms, collect 357ms, tests 25ms, environment 0ms, prepare 215ms)
+
+
+> viec-hoc@0.1.0 test:e2e
+> playwright test tests/e2e --project=chromium --reporter=list
+
+
+Running 2 tests using 1 worker
+
+  ok 1 [chromium] › tests\e2e\class-workflows.spec.ts:87:7 › E2E Browser Workflows — Login, Mở lớp & Tham gia lớp › E2E-01: Giảng viên đăng nhập -> mở lớp hợp lệ (R1), chặn trùng tên (R2) và chặn vượt 3 lớp pending (R3) (3.6s)
+  ok 2 [chromium] › tests\e2e\class-workflows.spec.ts:235:7 › E2E Browser Workflows — Login, Mở lớp & Tham gia lớp › E2E-02: Sinh viên đăng nhập -> tham gia lớp hợp lệ (R1), bị chặn trùng (R2) và lớp chưa kích hoạt (R3) (1.8s)
+
+  2 passed (13.3s)
+
+================================================================
+TỔNG KẾT: 14/14 ca kiểm thử ĐẠT (7 Unit + 5 Integration + 2 E2E) — Exit code 0
+================================================================

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase-browser';
 import { getCachedProfile } from '@/lib/profile-cache';
 import { oralcheckFetch } from '@/lib/oralcheck-client';
+import { getClassMetadata } from '@/lib/oralcheck-validators';
 import TeacherSidebar from '@/components/TeacherSidebar';
 import PageLoadingScreen from '@/components/PageLoadingScreen';
 
@@ -83,14 +84,6 @@ const faculties = [
   'Khoa Mạng máy tính và Truyền thông',
   'Khoa Khoa học và Kỹ thuật Thông tin',
 ];
-
-function getClassMetadata(description: string | null, fallbackFaculty: string) {
-  const lines = (description ?? '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const secondaryCode = lines.find((line) => /^Mã môn:/i.test(line))?.replace(/^Mã môn:\s*/i, '') ?? '';
-  const classFaculty = lines.find((line) => /^Khoa:/i.test(line))?.replace(/^Khoa:\s*/i, '') ?? fallbackFaculty;
-  const schedule = lines.filter((line) => !/^(Mã môn|Khoa):/i.test(line)).join(' • ');
-  return { secondaryCode, faculty: classFaculty, schedule };
-}
 
 export default function TeacherClasses() {
   const router = useRouter();

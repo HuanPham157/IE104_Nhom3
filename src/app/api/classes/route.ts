@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   apiJson,
@@ -7,15 +6,11 @@ import {
   readJson,
   reportDatabaseError,
 } from '@/lib/oralcheck-api';
-
-const MAX_PENDING_CLASSES_PER_LECTURER = 3;
-
-const createClassSchema = z
-  .object({
-    class_name: z.string().trim().min(1, 'Tên lớp học không được để trống').max(160, 'Tên lớp học tối đa 160 ký tự'),
-    description: z.string().trim().max(2000).optional().nullable(),
-  })
-  .strict();
+import {
+  createClassSchema,
+  MAX_PENDING_CLASSES_PER_LECTURER,
+  validateTeacherClassCreationRules,
+} from '@/lib/oralcheck-validators';
 
 interface ClassListRecord {
   id: string;
@@ -149,31 +144,19 @@ export async function POST(request: Request) {
     return apiJson({ error: 'Không thể kiểm tra danh sách lớp hiện có' }, 500);
   }
 
-  const normalizedClassName = parsed.data.class_name.trim().toLocaleLowerCase();
-  const hasDuplicateClassName = (ownedClasses ?? []).some(
-    (item) => item.class_name.trim().toLocaleLowerCase() === normalizedClassName,
+  const ruleCheck = validateTeacherClassCreationRules(
+    ownedClasses ?? [],
+    parsed.data.class_name,
+    auth.value.role === 'admin' ? 'admin' : 'lecturer',
   );
-  if (hasDuplicateClassName) {
+  if (!ruleCheck.ok) {
     return apiJson(
       {
-        error: 'Bạn đã có lớp học với tên này đang hoạt động hoặc chờ duyệt.',
-        code: 'DUPLICATE_CLASS_NAME',
+        error: ruleCheck.error,
+        code: ruleCheck.code,
       },
-      409,
+      ruleCheck.status,
     );
-  }
-
-  if (auth.value.role === 'lecturer') {
-    const pendingCount = (ownedClasses ?? []).filter((item) => item.status === 'pending').length;
-    if (pendingCount >= MAX_PENDING_CLASSES_PER_LECTURER) {
-      return apiJson(
-        {
-          error: `Bạn chỉ có thể có tối đa ${MAX_PENDING_CLASSES_PER_LECTURER} lớp đang chờ quản trị viên phê duyệt cùng lúc.`,
-          code: 'MAX_PENDING_CLASSES_EXCEEDED',
-        },
-        409,
-      );
-    }
   }
 
   const classCode = randomBytes(5).toString('hex').toUpperCase();

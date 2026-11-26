@@ -177,9 +177,22 @@ npm run build
 # 4. Chạy bộ kiểm thử tự động Playwright (headless)
 npx playwright test --project=chromium
 
-# 5. Xem báo cáo chi tiết kiểm thử Playwright dạng trực quan
+# 5. Chạy toàn bộ bộ kiểm thử 3 tầng bằng 1 lệnh duy nhất (Unit + Integration + E2E)
+npm test
+
+# 6. Chạy riêng từng tầng kiểm thử
+npm run test:unit          # Vitest (tests/unit/*.test.ts) - không cần DB/mạng
+npm run test:integration   # Vitest (tests/integration/*.test.ts) - API + In-Memory Test DB
+npm run test:e2e           # Playwright (tests/e2e/*.spec.ts) - Trình duyệt Chromium
+
+# 7. Xem báo cáo chi tiết kiểm thử Playwright dạng trực quan
 npx playwright show-report
 ```
+
+- Kế hoạch kiểm thử: [`docs/TEST_PLAN.md`](./docs/TEST_PLAN.md)
+- Danh sách ca kiểm thử (14 ca): [`docs/TEST_CASES.md`](./docs/TEST_CASES.md)
+- Nhật ký lỗi phát hiện: [`docs/BUGS.md`](./docs/BUGS.md)
+- Kết quả chạy test mới nhất: [`docs/test-results.txt`](./docs/test-results.txt)
 
 *Ma trận kết quả kiểm thử 12 kịch bản chi tiết xem tại [`docs/test-results.md`](file:///d:/HocTap/Nam%203/HK1/IE104/viec-hoc/docs/test-results.md).*
 

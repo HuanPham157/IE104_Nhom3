@@ -1,16 +1,10 @@
-import { z } from 'zod';
 import {
   apiJson,
   authenticateRole,
   readJson,
   reportDatabaseError,
 } from '@/lib/oralcheck-api';
-
-const joinSchema = z
-  .object({
-    class_code: z.string().trim().min(6).max(10).regex(/^[A-Za-z0-9]+$/),
-  })
-  .strict();
+import { joinClassSchema as joinSchema } from '@/lib/oralcheck-validators';
 
 export async function POST(request: Request) {
   const auth = await authenticateRole(request, ['student']);
