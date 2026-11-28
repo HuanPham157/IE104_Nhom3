@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Bản HTML xem thử giao diện TeacherEvaluation hiện tại">
+  <title>Teacher Evaluation · HTML Preview</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #111827;
+      background: #f4f5f8;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      --border: #e5e7eb;
+      --muted: #6b7280;
+      --indigo: #4338ca;
+      --indigo-light: #eef2ff;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; font-size: 12px; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .app { min-height: 100vh; display: flex; }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      display: flex;
+      flex: 0 0 256px;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100vh;
+      padding: 18px 16px;
+      border-right: 1px solid var(--border);
+      background: #fff;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+    .brand-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #111827; color: #fff; font-size: 17px; }
+    .brand-name { font-size: 14px; font-weight: 850; letter-spacing: -.03em; }
+    .brand-tag { margin-left: 4px; padding: 2px 6px; border-radius: 5px; background: #e0e7ff; color: #4338ca; font-size: 8px; font-weight: 800; }
+    .brand-caption { display: block; margin-top: 3px; color: #9ca3af; font-size: 9px; }
+    .side-action { width: 100%; margin: 22px 0 24px; padding: 10px 12px; border: 0; border-radius: 11px; background: #111827; color: #fff; font-weight: 750; }
+    .nav-label { padding: 0 11px; color: #9ca3af; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+    .nav { display: grid; gap: 3px; margin-top: 8px; }
+    .nav a, .nav .active { display: flex; align-items: center; gap: 11px; padding: 10px 11px; border-radius: 10px; color: #4b5563; text-decoration: none; }
+    .nav .active { justify-content: space-between; border: 1px solid #e0e7ff; background: #eef2ff; color: #4338ca; font-weight: 750; }
+    .nav .active span:first-child { display: flex; align-items: center; gap: 11px; }
+    .active-dot { width: 7px; height: 7px; border-radius: 50%; background: #4f46e5; }
+    .profile-area { display: grid; gap: 12px; padding-top: 15px; border-top: 1px solid var(--border); }
+    .profile { display: flex; align-items: center; gap: 10px; padding: 9px; border: 1px solid var(--border); border-radius: 11px; background: #f9fafb; }
+    .avatar { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: #4f46e5; color: #fff; font-weight: 800; }
+    .profile small { display: block; margin-top: 3px; color: #4338ca; font-size: 8px; font-weight: 800; }
+    .profile-status { display: flex; justify-content: space-between; padding: 0 4px; color: #9ca3af; font-size: 9px; }
+    .profile-status strong { color: #059669; }
+
+    .main { min-width: 0; flex: 1; padding-bottom: 75px; }
+    .topbar { position: sticky; z-index: 5; top: 0; display: flex; min-height: 54px; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 24px; border-bottom: 1px solid var(--border); background: #fff; }
+    .breadcrumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #6b7280; }
+    .breadcrumbs strong { color: #111827; }
+    .assignment-pill, .status-pill { padding: 5px 9px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 9px; font-weight: 800; }
+    .top-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+    .status-pill { border: 1px solid #a7f3d0; background: #ecfdf5; color: #047857; }
+    .outline-btn, .dark-btn, .light-btn { padding: 7px 11px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: #374151; font-size: 10px; font-weight: 700; }
+    .dark-btn { border-color: #111827; background: #111827; color: #fff; }
+
+    .current-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(275px, .6fr); gap: 12px; margin: 16px 24px 0; }
+    .current-card, .progress-card { padding: 13px 15px; border: 1px solid var(--border); border-radius: 12px; background: #fff; box-shadow: 0 1px 2px #11182708; }
+    .current-card { border-color: #e0e7ff; }
+    .card-label-row, .progress-title, .question-meta, .section-heading, .score-title, .rubric-head, .actions-row, .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .eyebrow { color: #4338ca; font-size: 9px; font-weight: 850; letter-spacing: .055em; text-transform: uppercase; }
+    .question-number { padding: 4px 8px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 9px; font-weight: 750; }
+    .question-text { margin: 8px 0 0; color: #374151; line-height: 1.55; }
+    .progress-count { font-variant-numeric: tabular-nums; font-weight: 750; }
+    .progress-track { height: 7px; margin: 9px 0 6px; overflow: hidden; border-radius: 999px; background: #f3f4f6; }
+    .progress-fill { width: 50%; height: 100%; border-radius: inherit; background: #4f46e5; }
+    .progress-caption { color: #6b7280; font-size: 9px; }
+    .question-grid { display: grid; grid-template-columns: repeat(6, minmax(28px, 1fr)); gap: 7px; margin-top: 11px; }
+    .question-cell { aspect-ratio: 1; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; color: #4b5563; font-weight: 800; }
+    .question-cell.published { border-color: #a7f3d0; background: #d1fae5; color: #065f46; }
+    .question-cell.draft { border-color: #fcd34d; background: #fef3c7; color: #92400e; }
+    .question-cell.current { outline: 2px solid #4f46e5; outline-offset: 1px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 9px 13px; margin-top: 9px; color: #6b7280; font-size: 8px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    .legend-swatch { width: 9px; height: 9px; border: 1px solid #d1d5db; border-radius: 3px; background: #fff; }
+    .legend-swatch.published { border-color: #a7f3d0; background: #d1fae5; }
+    .legend-swatch.draft { border-color: #fcd34d; background: #fef3c7; }
+
+    .workspace { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; gap: 22px; padding: 20px 24px 90px; }
+    .left-column { display: grid; gap: 18px; min-width: 0; }
+    .panel { padding: 17px; border: 1px solid var(--border); border-radius: 16px; background: #fff; box-shadow: 0 2px 5px #11182708; }
+    .panel-title { margin: 0; font-size: 12px; font-weight: 800; }
+    .subtle { color: #6b7280; font-size: 9px; line-height: 1.6; }
+    .student-line { margin-top: 5px; }
+    .audio-box { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: #f9fafb; }
+    .audio-file { margin: 0 0 10px; overflow: hidden; color: #4b5563; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .audio-controls { display: flex; align-items: center; gap: 10px; }
+    .play-button { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; border: 0; border-radius: 50%; background: #111827; color: #fff; }
+    .audio-line { height: 5px; flex: 1; overflow: hidden; border-radius: 10px; background: #e5e7eb; }
+    .audio-line span { display: block; width: 37%; height: 100%; border-radius: inherit; background: #4f46e5; }
+    .audio-time { color: #6b7280; font-family: ui-monospace, monospace; font-size: 9px; }
+    .speed-controls { display: flex; gap: 3px; margin-top: 12px; padding: 3px; width: max-content; border-radius: 8px; background: #f3f4f6; }
+    .speed-controls button { padding: 4px 7px; border: 0; border-radius: 6px; background: transparent; color: #6b7280; font-size: 9px; font-weight: 750; }
+    .speed-controls .selected { background: #fff; color: #111827; box-shadow: 0 1px 2px #00000012; }
+    .transcript-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 9px; padding-bottom: 12px; border-bottom: 1px solid #f3f4f6; }
+    .transcript-tools { display: flex; gap: 6px; }
+    .transcript-tools button { padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px; background: #fff; color: #374151; font-size: 9px; font-weight: 750; }
+    .transcript-tools button:last-child { border-color: #c7d2fe; background: #eef2ff; color: #4338ca; }
+    .transcript-note { margin: 12px 0; padding: 10px; border: 1px solid #f3f4f6; border-radius: 9px; background: #f9fafb; color: #4b5563; font-size: 9px; line-height: 1.55; }
+    .criterion-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .criterion-legend span { padding: 4px 7px; border-radius: 5px; font-size: 8px; font-weight: 750; }
+    .tc1 { background: #dbeafe; color: #1e3a8a; }
+    .tc2 { background: #f3e8ff; color: #581c87; }
+    .tc3 { background: #dcfce7; color: #14532d; }
+    .needs-review { background: #fef2f2; color: #991b1b; }
+    .transcript { margin-top: 10px; padding: 12px; border: 1px solid #f3f4f6; border-radius: 10px; color: #374151; font-size: 10px; line-height: 1.9; }
+    .transcript time { margin-right: 5px; color: #4f46e5; font-family: ui-monospace, monospace; font-size: 8px; }
+    mark { padding: 2px 3px; border-radius: 4px; }
+    mark .tag { margin-right: 4px; padding: 1px 4px; border-radius: 4px; background: #ffffffb8; color: #374151; font-family: ui-monospace, monospace; font-size: 8px; font-weight: 750; }
+    .evidence-one { background: #dbeafe; color: #1e3a8a; }
+    .evidence-two { background: #f3e8ff; color: #581c87; }
+    .evidence-three { background: #fef2f2; color: #991b1b; }
+
+    .evaluation-frame { min-width: 0; padding: 19px; border: 1px solid var(--border); border-radius: 17px; background: #fff; box-shadow: 0 2px 5px #11182708; }
+    .evaluation-section + .evaluation-section { margin-top: 19px; padding-top: 18px; border-top: 1px solid #f3f4f6; }
+    .evaluation-section.teacher-section { border-top: 2px solid #e0e7ff; }
+    .score-title { padding-bottom: 13px; border-bottom: 1px solid #f3f4f6; }
+    .score-title h1 { margin: 4px 0 0; font-size: 14px; font-weight: 850; }
+    .score-title .badge { padding: 5px 8px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 8px; font-weight: 800; white-space: nowrap; }
+    .score-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 13px; }
+    .score-card { padding: 12px; border: 1px solid var(--border); border-radius: 11px; background: #f9fafb; }
+    .score-card.teacher { border-color: #a7f3d0; background: #ecfdf5; }
+    .score-label { display: block; margin-bottom: 5px; color: #6b7280; font-size: 9px; }
+    .score-card.teacher .score-label { color: #065f46; font-weight: 750; }
+    .score-value { font-family: ui-monospace, monospace; font-size: 24px; font-weight: 900; }
+    .score-card.teacher .score-value { color: #065f46; }
+    .total-score { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 12px 14px; border: 1px solid #c7d2fe; border-radius: 11px; background: #eef2ff; }
+    .total-score strong { color: #4338ca; font-family: ui-monospace, monospace; font-size: 22px; }
+    .total-label { color: #312e81; font-size: 9px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
+    .total-max { margin-top: 4px; color: #4338ca; font-size: 8px; }
+    .analysis-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 13px; }
+    .metric { padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: #f9fafb; }
+    .metric-heading { display: flex; justify-content: space-between; gap: 5px; font-size: 8px; font-weight: 750; }
+    .metric-heading strong { color: #047857; font-family: ui-monospace, monospace; }
+    .metric-bar { height: 5px; margin-top: 7px; overflow: hidden; border-radius: 999px; background: #e5e7eb; }
+    .metric-bar span { display: block; height: 100%; border-radius: inherit; background: #059669; }
+    .metric:nth-child(2) .metric-heading strong { color: #4338ca; }
+    .metric:nth-child(2) .metric-bar span { background: #4f46e5; }
+    .metric:nth-child(3) .metric-heading strong { color: #1d4ed8; }
+    .metric:nth-child(3) .metric-bar span { background: #2563eb; }
+    .speech-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 9px; }
+    .speech-metric { padding: 8px 5px; border: 1px solid #f3f4f6; border-radius: 8px; background: #f9fafb; color: #6b7280; text-align: center; font-size: 8px; }
+    .speech-metric strong { display: block; margin-top: 4px; color: #111827; font-family: ui-monospace, monospace; font-size: 9px; }
+    .section-heading { margin: 0 0 11px; font-size: 11px; font-weight: 850; }
+    .analysis-list { display: grid; gap: 8px; }
+    .analysis-item { padding: 10px 11px; border: 1px solid #bbf7d0; border-radius: 10px; background: #f0fdf4; color: #14532d; }
+    .analysis-item h3 { margin: 0 0 5px; color: #166534; font-size: 9px; }
+    .analysis-item ul { margin: 0; padding-left: 17px; font-size: 9px; line-height: 1.55; }
+    .analysis-item.misconception { border-color: #fecaca; background: #fef2f2; color: #7f1d1d; }
+    .analysis-item.misconception h3 { color: #991b1b; }
+    .analysis-item.missing { border-color: var(--border); background: #f9fafb; color: #374151; }
+    .analysis-item.missing h3 { color: #111827; }
+    .ai-feedback { margin-top: 8px; padding: 11px; border-radius: 10px; background: #1e1b4b; color: #e0e7ff; }
+    .ai-feedback strong { color: #c7d2fe; font-size: 9px; }
+    .ai-feedback p { margin: 5px 0 0; font-size: 9px; line-height: 1.55; }
+    .teacher-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #f3f4f6; }
+    .teacher-head h2 { margin: 0; font-size: 11px; font-weight: 850; }
+    .teacher-head p { margin: 4px 0 0; color: #6b7280; font-size: 9px; }
+    .teacher-pill { padding: 5px 8px; border: 1px solid #c7d2fe; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 8px; font-weight: 850; }
+    .rubric { margin-top: 13px; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; }
+    .rubric-row { display: grid; grid-template-columns: minmax(0, 1fr) 56px 86px; align-items: start; gap: 8px; padding: 11px; border-top: 1px solid #f3f4f6; }
+    .rubric-row:first-child { border-top: 0; }
+    .rubric-header { align-items: center; background: #f9fafb; color: #6b7280; font-size: 8px; font-weight: 850; text-transform: uppercase; }
+    .rubric-header span:not(:first-child), .ai-points, .teacher-score { text-align: center; }
+    .criterion-title { font-size: 9px; font-weight: 850; line-height: 1.5; }
+    .criterion-max { color: #6b7280; font-weight: 550; white-space: nowrap; }
+    .criterion-copy { margin: 4px 0 0; color: #6b7280; font-size: 8px; line-height: 1.5; }
+    .criterion-evidence { margin: 5px 0 0; color: #4338ca; font-size: 8px; line-height: 1.5; }
+    .criterion-suggestion { margin-top: 7px; padding: 7px; border-radius: 7px; background: #fffbeb; color: #78350f; font-size: 8px; line-height: 1.5; }
+    .ai-points { padding-top: 3px; color: #4338ca; font-family: ui-monospace, monospace; font-size: 9px; font-weight: 850; }
+    .teacher-score input { width: 100%; padding: 6px 3px; border: 1px solid #d1d5db; border-radius: 7px; background: #fff; color: #111827; font-family: ui-monospace, monospace; font-size: 9px; font-weight: 750; text-align: center; }
+    .feedback-wrap { margin-top: 15px; }
+    .feedback-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; font-size: 10px; font-weight: 850; }
+    .suggestion-box { padding: 10px; border: 1px solid #fcd34d; border-radius: 10px; background: #fffbeb; color: #78350f; }
+    .suggestion-box p { margin: 5px 0 8px; font-size: 9px; line-height: 1.55; }
+    .suggestion-box button { padding: 5px 7px; border: 1px solid #fcd34d; border-radius: 6px; background: #fff; color: #78350f; font-size: 8px; font-weight: 800; }
+    .feedback-wrap textarea { display: block; width: 100%; min-height: 78px; margin-top: 8px; padding: 10px; resize: vertical; border: 1px solid #d1d5db; border-radius: 10px; color: #111827; font-size: 9px; line-height: 1.5; }
+    .feedback-hint { margin: 6px 0 0; color: #6b7280; font-size: 8px; }
+    .teacher-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #f3f4f6; }
+    .sync-label { display: flex; align-items: center; gap: 6px; color: #4b5563; font-size: 8px; }
+    .action-buttons { display: flex; gap: 7px; }
+    .action-buttons button { padding: 8px 11px; border: 1px solid #d1d5db; border-radius: 9px; background: #fff; color: #111827; font-size: 9px; font-weight: 800; }
+    .action-buttons .publish { border-color: #111827; background: #111827; color: #fff; }
+    .demo-status { min-height: 14px; margin: 7px 0 0; color: #047857; font-size: 8px; }
+
+    .footer { position: fixed; z-index: 8; right: 0; bottom: 0; left: 256px; padding: 10px 22px; border-top: 1px solid var(--border); background: #fffffff2; box-shadow: 0 -3px 12px #1118270a; backdrop-filter: blur(8px); }
+    .footer-inner { flex-wrap: wrap; }
+    .footer-student { color: #4b5563; font-size: 9px; }
+    .footer-progress { display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 9px; }
+    .footer-progress strong { color: #111827; }
+    .footer-progress .progress-track { width: 95px; margin: 0; }
+    .footer-nav { display: flex; gap: 5px; padding-left: 10px; border-left: 1px solid var(--border); }
+    .footer-nav button { padding: 4px 6px; border: 0; border-radius: 5px; background: transparent; color: #6b7280; }
+    .footer-end { display: flex; gap: 7px; }
+    .footer-end button { padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: #374151; font-size: 9px; font-weight: 750; }
+    .footer-end button:last-child { border-color: #4f46e5; background: #4f46e5; color: #fff; }
+
+    @media (max-width: 1100px) {
+      .sidebar { flex-basis: 210px; }
+      .footer { left: 210px; }
+      .workspace { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 760px) {
+      .sidebar { display: none; }
+      .footer { position: static; padding: 12px 16px; }
+      .main { padding-bottom: 0; }
+      .topbar { padding: 10px 16px; }
+      .current-row { grid-template-columns: minmax(0, 1fr); margin: 12px 16px 0; }
+      .workspace { gap: 14px; padding: 14px 16px 25px; }
+      .footer-inner { align-items: flex-start; }
+      .footer-progress { order: 2; }
+      .footer-end { order: 3; }
+    }
+    @media (max-width: 520px) {
+      .top-actions .outline-btn { display: none; }
+      .analysis-metrics { grid-template-columns: minmax(0, 1fr); }
+      .score-title { align-items: flex-start; }
+      .score-title h1 { max-width: 230px; }
+      .score-title .badge { max-width: 120px; white-space: normal; text-align: center; }
+      .evaluation-frame { padding: 13px; }
+      .rubric-row { grid-template-columns: minmax(0, 1fr) 38px 70px; gap: 5px; padding: 9px 7px; }
+      .rubric-header { font-size: 7px; }
+      .speech-metrics { gap: 4px; }
+      .speech-metric { font-size: 7px; }
+      .teacher-actions { align-items: flex-start; }
+      .action-buttons { width: 100%; }
+      .action-buttons button { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Điều hướng giảng viên">
+      <div>
+        <div class="brand">
+          <div class="brand-icon" aria-hidden="true">🎙</div>
+          <div>
+            <span class="brand-name">AIOralCheck</span><span class="brand-tag">STUDIO</span>
+            <span class="brand-caption">Hệ thống khảo thí âm học AI</span>
+          </div>
+        </div>
+        <button class="side-action" type="button">🎙 Chấm bài thi vấn đáp</button>
+        <div class="nav-label">ĐIỀU HƯỚNG CHÍNH</div>
+        <nav class="nav">
+          <a href="#">📊 Tổng quan</a>
+          <a href="#">👥 Lớp của tôi</a>
+          <a href="#">📝 Bài tập oral</a>
+          <div class="active"><span>💡 Đánh giá AI &amp; Chấm điểm</span><i class="active-dot"></i></div>
+          <a href="#">🎙 Phòng thu âm AI</a>
+          <a href="#">🏆 Lịch sử &amp; Bảng xếp hạng</a>
+        </nav>
+      </div>
+      <div class="profile-area">
+        <a class="subtle" href="#" style="text-decoration:none">⚙️ Cài đặt</a>
+        <div class="profile">
+          <div class="avatar">GV</div>
+          <div><strong>Giảng viên</strong><small>GIẢNG VIÊN</small></div>
+        </div>
+        <div class="profile-status"><span>❔ Trợ giúp &amp; Hướng dẫn</span><strong>● Sẵn sàng</strong></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumbs">
+          <span>Công nghệ phần mềm</span><span>/</span><strong>Đánh giá AI &amp; Chấm điểm</strong>
+          <span class="assignment-pill">Bài tập: Kỹ năng thuyết trình</span>
+        </div>
+        <div class="top-actions">
+          <span class="status-pill">● AI ĐÃ HOÀN TẤT CHẤM ĐIỂM</span>
+          <span class="subtle">Thời gian nộp: 10:42, 24/10/2026</span>
+          <button class="outline-btn" type="button">📄 Xem chi tiết bài nộp</button>
+          <button class="dark-btn" type="button">⚡ Bắt đầu đánh giá</button>
+        </div>
+      </header>
+
+      <section class="current-row" aria-label="Câu hỏi hiện tại và tiến độ chấm">
+        <div class="current-card">
+          <div class="card-label-row">
+            <span class="eyebrow">Nội dung câu hỏi đang chấm</span>
+            <span class="question-number">Câu 3 / 4</span>
+          </div>
+          <p class="question-text">Hãy giải thích nguyên lý hoạt động của QuickSort và nêu độ phức tạp trong các trường hợp.</p>
+        </div>
+        <div class="progress-card">
+          <div class="progress-title"><span class="eyebrow" style="color:#374151">Tiến độ chấm câu hỏi</span><span class="progress-count">2 / 4 câu</span></div>
+          <div class="progress-track" role="progressbar" aria-label="Số câu đã lưu tạm hoặc công bố điểm" aria-valuemin="0" aria-valuemax="4" aria-valuenow="2"><div class="progress-fill"></div></div>
+          <div class="progress-caption">1 đã công bố · 1 lưu tạm · 2 chưa chấm</div>
+          <div class="question-grid" role="group" aria-label="Lưới câu hỏi cần chấm">
+            <button class="question-cell published" type="button" aria-label="Câu 1, đã công bố điểm">1</button>
+            <button class="question-cell draft" type="button" aria-label="Câu 2, đã lưu tạm">2</button>
+            <button class="question-cell current" type="button" aria-current="step" aria-label="Câu 3, chưa chấm">3</button>
+            <button class="question-cell" type="button" aria-label="Câu 4, chưa chấm">4</button>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><i class="legend-swatch published"></i>Đã công bố</span>
+            <span class="legend-item"><i class="legend-swatch draft"></i>Lưu tạm</span>
+            <span class="legend-item"><i class="legend-swatch"></i>Chưa chấm</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="workspace">
+        <div class="left-column">
+          <section class="panel" aria-label="Bản ghi âm bài trả lời">
+            <div class="section-heading" style="justify-content:flex-start">
+              <span style="display:grid;width:34px;height:34px;place-items:center;border-radius:10px;background:#eef2ff;font-size:16px">🎙</span>
+              <div>
+                <h2 class="panel-title">Bản ghi âm bài trả lời vấn đáp</h2>
+                <p class="subtle student-line">Sinh viên: <strong style="color:#111827">Trần Minh Đức</strong> · MSSV: <strong>20210345</strong> · Lớp: CNTT K46</p>
+              </div>
+            </div>
+            <div class="audio-box">
+              <p class="audio-file">audio_cau_3_tran_minh_duc.mp3</p>
+              <div class="audio-controls" aria-label="Bản xem thử trình phát âm thanh">
+                <button class="play-button" type="button" aria-label="Phát audio">▶</button>
+                <div class="audio-line"><span></span></div>
+                <span class="audio-time">00:38 / 01:45</span>
+              </div>
+              <div class="speed-controls" aria-label="Tốc độ phát">
+                <button class="selected" type="button">1.0x</button><button type="button">1.2x</button><button type="button">1.5x</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="Transcript câu trả lời">
+            <div class="transcript-header">
+              <h2 class="panel-title">💬 Bản phiên âm giọng nói (Speech-to-Text)</h2>
+              <div class="transcript-tools"><button type="button">✏ Chỉnh sửa</button><button type="button">📤 Tải transcript lên</button></div>
+            </div>
+            <div class="transcript-note">
+              Các câu/mệnh đề được tô sáng là bằng chứng AI tìm thấy khớp với ý trong Rubric. Màu sắc tương ứng tiêu chí; giảng viên có thể đối chiếu lại với transcript và audio.
+              <div class="criterion-legend" aria-label="Chú giải bằng chứng theo tiêu chí">
+                <span class="tc1">TC1 · Chia để trị</span>
+                <span class="tc2">TC2 · Đệ quy</span>
+                <span class="tc3">TC3 · Độ phức tạp</span>
+                <span class="needs-review">! Cần giảng viên đối chiếu</span>
+              </div>
+            </div>
+            <div class="transcript">
+              <time>00:09</time>
+              <mark class="evidence-one"><span class="tag">00:09 · TC1</span>QuickSort hoạt động dựa trên nguyên lý chia để trị. Ta chọn một phần tử làm pivot rồi phân hoạch mảng thành hai phần.</mark>
+              <br><br><time>00:36</time>
+              <mark class="evidence-two"><span class="tag">00:36 · TC2</span>Sau đó gọi đệ quy cho hai mảng con cho đến khi kích thước bằng một.</mark>
+              <br><br><time>01:12</time>
+              <mark class="evidence-three"><span class="tag">01:12 · TC3 · !</span>Trường hợp xấu nhất xảy ra khi mảng hoàn toàn ngẫu nhiên.</mark>
+            </div>
+            <p class="subtle" style="margin:8px 0 0">Bằng chứng AI được đánh dấu ngay trong transcript; đoạn cần kiểm tra được tô đỏ.</p>
+          </section>
+        </div>
+
+        <section class="evaluation-frame" aria-label="Phiếu đánh giá AI và giảng viên">
+          <section class="evaluation-section" aria-label="Kết quả AI và điểm giảng viên">
+            <div class="score-title">
+              <div><span class="eyebrow">Phiếu đánh giá</span><h1>Kết quả AI &amp; giảng viên chấm</h1></div>
+              <span class="badge">AI ĐỀ XUẤT · GIẢNG VIÊN DUYỆT</span>
+            </div>
+            <div class="score-cards">
+              <div class="score-card"><span class="score-label">Điểm AI đề xuất</span><strong class="score-value">4.0</strong></div>
+              <div class="score-card teacher"><span class="score-label">Điểm giảng viên</span><strong class="score-value" id="teacher-score-total">4.0</strong></div>
+            </div>
+            <div class="total-score">
+              <div><div class="total-label">Tổng điểm giảng viên</div><div class="total-max">Thang điểm tối đa 5.0</div></div>
+              <strong id="teacher-score-highlight">4.0</strong>
+            </div>
+            <div class="analysis-metrics" aria-label="Chỉ số phân tích AI">
+              <div class="metric"><div class="metric-heading"><span>Đúng khái niệm</span><strong>82%</strong></div><div class="metric-bar"><span style="width:82%"></span></div></div>
+              <div class="metric"><div class="metric-heading"><span>Tính mạch lạc</span><strong>76%</strong></div><div class="metric-bar"><span style="width:76%"></span></div></div>
+              <div class="metric"><div class="metric-heading"><span>Phân tích lỗi</span><strong>68%</strong></div><div class="metric-bar"><span style="width:68%"></span></div></div>
+            </div>
+            <div class="speech-metrics">
+              <div class="speech-metric">Tốc độ nói<strong>132 từ/phút</strong></div>
+              <div class="speech-metric">Thời gian ngập ngừng<strong>4.2 giây</strong></div>
+              <div class="speech-metric">Độ tự tin khẩu ngữ<strong>78%</strong></div>
+            </div>
+          </section>
+
+          <section class="evaluation-section" aria-label="Phân tích chi tiết từ mô hình AI">
+            <h2 class="section-heading">📑 Phân tích chi tiết từ mô hình AI</h2>
+            <div class="analysis-list">
+              <div class="analysis-item">
+                <h3>✓ Ý đúng / Điểm mạnh</h3>
+                <ul><li>Nêu được nguyên lý chia để trị và vai trò của pivot.</li><li>Mô tả đúng việc phân hoạch mảng thành hai phần.</li></ul>
+              </div>
+              <div class="analysis-item misconception">
+                <h3>✕ Ý sai / Hiểu nhầm</h3>
+                <ul><li>Nhận định trường hợp xấu nhất xảy ra khi mảng có thứ tự ngẫu nhiên là chưa chính xác.</li></ul>
+              </div>
+              <div class="analysis-item missing">
+                <h3>❓ Ý còn thiếu</h3>
+                <ul><li>Cần nêu rõ độ phức tạp trung bình O(n log n) và xấu nhất O(n²).</li></ul>
+              </div>
+            </div>
+            <div class="ai-feedback"><strong>💡 Nhận xét tổng quan của AI</strong><p>Câu trả lời nắm được ý tưởng chính. Cần giải thích điều kiện dẫn đến trường hợp xấu nhất và bổ sung độ phức tạp tương ứng.</p></div>
+          </section>
+
+          <section class="evaluation-section teacher-section" aria-label="Giảng viên chấm điểm theo Rubric">
+            <div class="teacher-head">
+              <div><h2>⚖ Chấm điểm theo Rubric</h2><p>Điều chỉnh điểm AI đề xuất trước khi duyệt kết quả</p></div>
+              <span class="teacher-pill">GIẢNG VIÊN</span>
+            </div>
+            <div class="rubric" role="table" aria-label="Rubric và điểm theo tiêu chí">
+              <div class="rubric-row rubric-header" role="row"><span>Rubric &amp; ghi chú</span><span>Điểm AI</span><span>Điểm giảng viên</span></div>
+              <div class="rubric-row" role="row">
+                <div>
+                  <div class="criterion-title">1. Nêu nguyên lý chia để trị <span class="criterion-max">(2.0 điểm)</span></div>
+                  <p class="criterion-copy">Sinh viên mô tả việc chọn pivot và phân hoạch mảng.</p>
+                  <p class="criterion-evidence">Bằng chứng · Transcript 00:09: “QuickSort hoạt động dựa trên nguyên lý chia để trị.”</p>
+                </div>
+                <span class="ai-points" aria-label="Điểm AI: 2.0">2.0</span>
+                <div class="teacher-score"><input type="number" min="0" max="2" step="0.1" value="2" aria-label="Điểm giảng viên cho tiêu chí 1"></div>
+              </div>
+              <div class="rubric-row" role="row">
+                <div>
+                  <div class="criterion-title">2. Mô tả đệ quy và điều kiện dừng <span class="criterion-max">(2.0 điểm)</span></div>
+                  <p class="criterion-copy">Có đề cập lời gọi đệ quy; điều kiện dừng cần giải thích rõ hơn.</p>
+                  <div class="criterion-suggestion"><strong>Gợi ý AI:</strong> Làm rõ vì sao thuật toán dừng khi mảng con có kích thước 0 hoặc 1.</div>
+                </div>
+                <span class="ai-points" aria-label="Điểm AI: 1.5">1.5</span>
+                <div class="teacher-score"><input type="number" min="0" max="2" step="0.1" value="1.5" aria-label="Điểm giảng viên cho tiêu chí 2"></div>
+              </div>
+              <div class="rubric-row" role="row">
+                <div>
+                  <div class="criterion-title">3. Phân tích độ phức tạp <span class="criterion-max">(1.0 điểm)</span></div>
+                  <p class="criterion-copy">Đã nêu O(n log n) cho trường hợp tốt nhất; giải thích trường hợp xấu nhất chưa chính xác.</p>
+                  <div class="criterion-suggestion"><strong>Gợi ý AI:</strong> Trường hợp xấu nhất thường xảy ra khi pivot phân hoạch rất lệch. Hãy nêu độ phức tạp O(n²).</div>
+                </div>
+                <span class="ai-points" aria-label="Điểm AI: 0.5">0.5</span>
+                <div class="teacher-score"><input type="number" min="0" max="1" step="0.1" value="0.5" aria-label="Điểm giảng viên cho tiêu chí 3"></div>
+              </div>
+            </div>
+
+            <div class="feedback-wrap">
+              <label class="feedback-label" for="teacher-feedback">
+                <span>Gợi ý cải thiện &amp; nhận xét giảng viên</span>
+                <span class="eyebrow" style="font-size:8px">NỘI DUNG THAM KHẢO</span>
+              </label>
+              <div class="suggestion-box">
+                <strong>Gợi ý nhận xét từ AI · Tiêu chí 3 · Transcript 01:12</strong>
+                <p id="suggested-feedback">Em đã trình bày được cách QuickSort phân hoạch dữ liệu. Hãy bổ sung điều kiện làm xuất hiện trường hợp xấu nhất và độ phức tạp O(n²) để câu trả lời đầy đủ hơn.</p>
+                <button id="insert-feedback" type="button">Chèn nhận xét AI gợi ý</button>
+              </div>
+              <textarea id="teacher-feedback" aria-label="Gợi ý cải thiện và nhận xét giảng viên" placeholder="Nêu nội dung sinh viên cần cải thiện và lời nhận xét khuyến khích..."></textarea>
+              <p class="feedback-hint">Gợi ý của AI chỉ mang tính tham khảo; giảng viên có thể chỉnh sửa trước khi lưu.</p>
+            </div>
+            <div class="teacher-actions">
+              <label class="sync-label"><input type="checkbox" checked> Tự động đồng bộ vào Sổ điểm Canvas/Moodle</label>
+              <div class="action-buttons"><button id="save-draft" type="button">Lưu tạm</button><button class="publish" id="publish-review" type="button">🚀 Công bố kết quả</button></div>
+            </div>
+            <p class="demo-status" id="demo-status" role="status" aria-live="polite"></p>
+          </section>
+        </section>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-inner">
+          <div class="footer-student">👤 <strong>Trần Minh Đức</strong> · 20210345 · Bài tập: <em>Kỹ năng thuyết trình</em>
+            <span class="footer-nav"><button type="button" aria-label="Sinh viên trước">⏮</button><button type="button" aria-label="Sinh viên tiếp theo" disabled>⏭</button></span>
+          </div>
+          <div class="footer-progress"><span>Tiến độ chấm lớp: <strong>18 / 32 sinh viên</strong></span><div class="progress-track" role="progressbar" aria-label="Tiến độ chấm bài của lớp" aria-valuemin="0" aria-valuemax="32" aria-valuenow="18"><div class="progress-fill" style="width:56.25%"></div></div></div>
+          <div class="footer-end"><button type="button">🕒 Lịch sử chấm</button><button type="button">📥 Xuất Báo cáo PDF</button></div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    const scoreInputs = [...document.querySelectorAll('.teacher-score input')];
+    const teacherScore = document.getElementById('teacher-score-total');
+    const highlightedScore = document.getElementById('teacher-score-highlight');
+    const status = document.getElementById('demo-status');
+    const updateScore = () => {
+      const total = scoreInputs.reduce((sum, input) => sum + (Number(input.value) || 0), 0);
+      const formatted = total.toFixed(1);
+      teacherScore.textContent = formatted;
+      highlightedScore.textContent = formatted;
+    };
+    scoreInputs.forEach((input) => input.addEventListener('input', updateScore));
+    document.getElementById('insert-feedback').addEventListener('click', () => {
+      const feedback = document.getElementById('teacher-feedback');
+      const suggestion = document.getElementById('suggested-feedback').textContent.trim();
+      if (!feedback.value.includes(suggestion)) {
+        feedback.value = feedback.value.trim() ? `${feedback.value.trim()}\n${suggestion}` : suggestion;
+      }
+      feedback.focus();
+    });
+    document.getElementById('save-draft').addEventListener('click', () => {
+      status.textContent = 'Bản HTML xem thử: thao tác lưu chưa kết nối với ứng dụng.';
+    });
+    document.getElementById('publish-review').addEventListener('click', () => {
+      status.textContent = 'Bản HTML xem thử: thao tác công bố chưa kết nối với ứng dụng.';
+    });
+  </script>
+</body>
+</html>

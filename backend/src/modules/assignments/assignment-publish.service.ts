@@ -1,0 +1,54 @@
+import { z } from 'zod';
+import { Injectable } from '@nestjs/common';
+import type { AuthContext } from '../../common/auth/auth.types';
+import { apiJson, type ApiResult } from '../../common/http/api-result';
+import type { RouteParams, RouteQuery } from '../../common/http/route-types';
+import { reportDatabaseError } from '../../common/http/validation';
+
+const idSchema = z.string().uuid();
+
+/** Chuyển từ frontend/src/app/api/assignments/[id]/publish/route.ts. */
+@Injectable()
+export class AssignmentPublishService {
+  async publish(auth: AuthContext, params: RouteParams, body: unknown, searchParams: RouteQuery): Promise<ApiResult> {
+
+    const { id } = params;
+    if (!idSchema.safeParse(id).success) {
+      return apiJson({ error: 'ID bài tập không hợp lệ' }, 400);
+    }
+
+    const { data, error } = await auth.db.rpc('publish_assignment_results', {
+      p_assignment_id: id,
+    });
+    if (error) {
+      reportDatabaseError('Unable to publish assignment results', error);
+      if (error.message.includes('Assignment not found or forbidden')) {
+        return apiJson({ error: 'Không tìm thấy bài tập hoặc bạn không có quyền công bố' }, 404);
+      }
+      if (error.message.includes('must be published')) {
+        return apiJson({ error: 'Bài tập phải được công bố cho sinh viên trước khi công bố điểm' }, 409);
+      }
+      return apiJson({ error: 'Không thể công bố điểm' }, 500);
+    }
+
+    // Bản cũ (migration 002) trả về timestamptz; bản mới (006) trả về jsonb kèm lý do khi chưa công bố được.
+    const result = (typeof data === 'object' && data !== null ? data : { published: true, results_published_at: data }) as {
+      published: boolean; results_published_at?: string; auto_submitted?: number; ungraded?: number; in_progress?: number; notified?: number;
+      before_deadline?: boolean; ends_at?: string;
+    };
+    // Migration 010: chỉ công bố sau hạn nộp (trước đó sinh viên còn làm / làm lại).
+    if (!result.published && result.before_deadline) {
+      const endsAt = result.ends_at ? new Date(result.ends_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'hạn nộp';
+      return apiJson({ error: `Chưa tới hạn nộp nên chưa công bố điểm được — sinh viên vẫn đang làm / làm lại. Có thể công bố sau ${endsAt}.`, data: result }, 409);
+    }
+    if (!result.published) {
+      const reasons = [
+        result.ungraded ? `${result.ungraded} bài đã nộp chưa duyệt đủ điểm từng câu` : '',
+        result.in_progress ? `${result.in_progress} sinh viên đang làm bài (chưa hết giờ)` : '',
+      ].filter(Boolean).join('; ');
+      const autoNote = result.auto_submitted ? ` Hệ thống vừa tự nộp ${result.auto_submitted} bài đã hết giờ — hãy chấm các bài này.` : '';
+      return apiJson({ error: `Chưa thể công bố: ${reasons}.${autoNote}`, data: result }, 409);
+    }
+    return apiJson({ data: result });
+  }
+}

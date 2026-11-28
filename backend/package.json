@@ -1,0 +1,31 @@
+{
+  "name": "oralcheck-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend API (NestJS) + worker chấm điểm bất đồng bộ cho AI OralCheck",
+  "scripts": {
+    "build": "nest build",
+    "start:dev": "nest start --watch",
+    "start": "node dist/backend/src/main.js",
+    "worker:dev": "nest start --watch --entryFile backend/src/worker",
+    "worker": "node dist/backend/src/worker.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.2.11",
+    "@nestjs/core": "11.2.11",
+    "@nestjs/platform-express": "11.2.11",
+    "@supabase/supabase-js": "2.119.0",
+    "pg-boss": "10.4.2",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "11.0.24",
+    "@types/express": "5.0.3",
+    "@types/multer": "2.0.0",
+    "@types/node": "22.15.30",
+    "typescript": "5.9.3"
+  }
+}
